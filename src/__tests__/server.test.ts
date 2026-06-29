@@ -37,7 +37,9 @@ describe('createServer', () => {
   test('eser_tescil handler with no apiKey returns isError tool result (does not throw)', async () => {
     const server = createServer(makeTestOpts()); // no apiKey
     const tools = (server as unknown as PrivateServer)._registeredTools;
-    const result = await tools['eser_tescil'].handler({ file_name: 'test.pdf' }, {});
+    // Provide valid file_base64 so input validation passes and auth check runs
+    const validB64 = Buffer.from('hello').toString('base64'); // 'aGVsbG8='
+    const result = await tools['eser_tescil'].handler({ file_base64: validB64, file_name: 'test.pdf' }, {});
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('IMZALA_API_KEY');
   });
