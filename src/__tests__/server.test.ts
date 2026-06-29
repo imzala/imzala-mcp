@@ -42,8 +42,21 @@ describe('createServer', () => {
     expect(result.content[0].text).toContain('IMZALA_API_KEY');
   });
 
-  test('whoami handler with valid apiKey returns stub text without isError', async () => {
-    const fetchSpy = vi.fn();
+  test('whoami handler with valid apiKey calls getMe and returns formatted account info', async () => {
+    const meData = {
+      success: true,
+      data: {
+        id: 'u1',
+        email: 'integration@imzala.org',
+        first_name: 'Test',
+        last_name: 'User',
+        workspace: { type: 'personal', organization_id: null },
+        credits: { remaining: 7 },
+      },
+    };
+    const fetchSpy = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(meData), { status: 200 }),
+    );
     const server = createServer({
       getAuthContext: () => ({ apiKey: 'imz_test' }),
       baseUrl: 'https://test-api.imzala.org',
@@ -52,9 +65,8 @@ describe('createServer', () => {
     const tools = (server as unknown as PrivateServer)._registeredTools;
     const result = await tools['whoami'].handler({}, {});
     expect(result.isError).toBeUndefined();
-    expect(result.content[0].text).toContain('not yet implemented');
-    // Stub does NOT call the API — resolveClient builds a client but handler doesn't invoke it
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(result.content[0].text).toContain('integration@imzala.org');
+    expect(fetchSpy).toHaveBeenCalledOnce();
   });
 
   test('async getAuthContext is awaited: missing key yields isError', async () => {
