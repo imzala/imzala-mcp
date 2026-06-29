@@ -1,4 +1,4 @@
-import { describe, test, expect, vi } from 'vitest';
+import { test, expect, vi } from 'vitest';
 import { makeClient, ImzalaApiError } from '../client.js';
 
 const okMe = {

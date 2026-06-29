@@ -8,7 +8,7 @@ export default defineConfig([
     platform: 'node',
     banner: { js: '#!/usr/bin/env node' },
     outDir: 'dist',
-    clean: false,
+    clean: true,
     dts: false,
     sourcemap: false,
   },
