@@ -72,7 +72,7 @@ export function formatEserTescil(result: TimestampResult, fileName: string): str
     `Önemli: Bu bir zaman damgasıdır, dijital/elektronik imza ya da nitelikli elektronik imza (QES) değildir, ıslak imza eşdeğeri değildir. Eser sahipliğini, telif hakkını veya mülkiyeti hukuken belirlemez/tescil etmez; "Eser Sahibi" bilgisi yalnızca beyanınızdır ve doğruluğundan siz sorumlusunuz. Bir uyuşmazlıktaki ispat değeri ilgili hukuki çerçeveye göre değerlendirilir.`,
     '',
     'Kanıtlar: dosya en geç belirtilen anda vardı + o andan beri değişmedi.',
-    'Kanıtlamaz: eser sahipliği / telif / mülkiyet (sahip bilgisi beyandır); kim yükledi; dosyanın daha önce var olmadığı; nitelikli/gelişmiş elektronik imza ya da hukuki tescil yerine GEÇMEZ.',
+    'Kanıtlamaz: eser sahipliği / telif / mülkiyet (sahip bilgisi beyandır); kim yükledi; dosyanın daha önce var olmadığı; nitelikli/gelişmiş elektronik imza, noter onayı veya telif tescili (ya da başka bir resmî/hukuki tescil) yerine GEÇMEZ.',
     '',
     `SHA-256: ${result.file_sha256}`,
     `Kalan kredi: ${result.credits_remaining}`,

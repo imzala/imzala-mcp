@@ -89,8 +89,9 @@ describe('eser_tescil: base64 validation', () => {
     });
     expect(result.isError).toBe(true);
     expect(result.content[0].text.toLowerCase()).toContain('base64');
-    // Client must not be called
+    // Client must not be called — resolveClient is not reached for base64 input errors
     expect(createTimestamp).not.toHaveBeenCalled();
+    expect(resolveClient).not.toHaveBeenCalled();
   });
 
   test('data-URL prefix → isError, does NOT call client', async () => {
@@ -106,6 +107,7 @@ describe('eser_tescil: base64 validation', () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text.toLowerCase()).toContain('base64');
     expect(createTimestamp).not.toHaveBeenCalled();
+    expect(resolveClient).not.toHaveBeenCalled();
   });
 
   test('URL-safe base64 with "-" → isError (not standard canonical)', async () => {
@@ -122,6 +124,7 @@ describe('eser_tescil: base64 validation', () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text.toLowerCase()).toContain('base64');
     expect(createTimestamp).not.toHaveBeenCalled();
+    expect(resolveClient).not.toHaveBeenCalled();
   });
 });
 
@@ -222,8 +225,28 @@ describe('eser_tescil: happy path', () => {
     expect(await getHappyOutput()).not.toContain('—');
   });
 
-  test('output contains no "noter" reference', async () => {
-    expect(await getHappyOutput()).not.toContain('noter');
+  test('main content contains "noter onayı veya telif tescili" in negation', async () => {
+    const output = await getHappyOutput();
+    const mainContent = output.replace(/\(Yapay zekâ asistanına:[\s\S]*\)$/, '').trim();
+    expect(mainContent).toContain('noter onayı veya telif tescili');
+  });
+
+  test('main content has no positive claim: "noter onaylı"', async () => {
+    const output = await getHappyOutput();
+    const mainContent = output.replace(/\(Yapay zekâ asistanına:[\s\S]*\)$/, '').trim();
+    expect(mainContent).not.toMatch(/noter onaylı/i);
+  });
+
+  test('main content has no positive claim: "noter tasdikli"', async () => {
+    const output = await getHappyOutput();
+    const mainContent = output.replace(/\(Yapay zekâ asistanına:[\s\S]*\)$/, '').trim();
+    expect(mainContent).not.toMatch(/noter tasdikli/i);
+  });
+
+  test('main content has no positive claim: "telif tescili yapıldı"', async () => {
+    const output = await getHappyOutput();
+    const mainContent = output.replace(/\(Yapay zekâ asistanına:[\s\S]*\)$/, '').trim();
+    expect(mainContent).not.toMatch(/telif tescili yapıldı/i);
   });
 
   test('output contains no "kesin delil"', async () => {
@@ -330,5 +353,35 @@ describe('eser_tescil: API error paths', () => {
     expect(result.content[0].text).not.toContain('minio');
     expect(result.content[0].text).not.toMatch(/https?:\/\//);
     expect(result.content[0].text).not.toContain('    at ');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// file_path happy path
+// ---------------------------------------------------------------------------
+
+describe('eser_tescil: file_path happy path', () => {
+  test('reads temp file, calls client once, output contains verify_url', async () => {
+    const { tmpdir } = await import('node:os');
+    const { writeFile, unlink } = await import('node:fs/promises');
+
+    const tmpPath = `${tmpdir()}/eser-tescil-test-${Date.now()}.pdf`;
+    await writeFile(tmpPath, Buffer.from('test pdf content for eser_tescil'));
+
+    const createTimestampSpy = vi.fn().mockResolvedValue(okResult);
+    const resolveClient = makeResolveWithTimestamp(() => createTimestampSpy());
+
+    try {
+      const result = await callHandler(resolveClient, {
+        file_path: tmpPath,
+        file_name: 'belge.pdf',
+      });
+
+      expect(result.isError).toBeUndefined();
+      expect(result.content[0].text).toContain('?seri=t1');
+      expect(createTimestampSpy).toHaveBeenCalledOnce();
+    } finally {
+      await unlink(tmpPath).catch(() => {});
+    }
   });
 });
