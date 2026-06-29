@@ -28,13 +28,13 @@ export function formatWhoami(me: MeResult): string {
 export function formatError(e: unknown): string {
   if (e instanceof ImzalaApiError) {
     if (e.status === 401) {
-      return 'Kimlik doğrulama başarısız — IMZALA_API_KEY anahtarını kontrol edin.';
+      return 'Kimlik doğrulama başarısız, IMZALA_API_KEY anahtarını kontrol edin.';
     }
     if (e.status === 403 && e.code === 'INSUFFICIENT_SCOPE') {
       return "Bu API anahtarının 'timestamps' yetkisi yok. Dashboard'da anahtara timestamps kapsamı verin.";
     }
     if (e.status === 402 || e.code === 'INSUFFICIENT_CREDITS') {
-      return 'Yetersiz kredi (eser tescil başına 4 kredi gerekir).';
+      return 'Yetersiz kredi. Eser tescil için yeterli krediniz yok.';
     }
     if (e.status === 503 || e.code === 'TSA_UNAVAILABLE') {
       return 'Zaman damgası servisi şu an kullanılamıyor, lütfen tekrar deneyin.';

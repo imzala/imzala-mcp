@@ -1,6 +1,6 @@
 # @imzala/mcp-server
 
-**İmzala MCP server** — AI asistanınızın (Claude, Cursor vb.) İmzala hesabınıza erişmesini sağlar. API anahtarıyla kimlik doğrulaması yapılır; iki araç sunar: `whoami` (hesap ve kredi bilgisi) ile `eser_tescil` (RFC 3161 zaman damgası).
+**İmzala MCP server:** AI asistanınızın (Claude, Cursor vb.) İmzala hesabınıza erişmesini sağlar. API anahtarıyla kimlik doğrulaması yapılır; iki araç sunar: `whoami` (hesap ve kredi bilgisi) ile `eser_tescil` (RFC 3161 zaman damgası).
 
 > **@next ön-sürüm:** Bu paket şu an İmzala test ortamına (`https://test-api.imzala.org`) bağlıdır. Değerlendirme amaçlıdır; üretime alınmadan önce kapsam onayı ve avukat incelemesi tamamlanacaktır.
 
@@ -82,7 +82,7 @@
 Bu API anahtari hesabiniza erisim saglar ve her zaman damgasi isleminde **kredi harcar.** Asagidaki kurallara uyun:
 
 - Anahtari bir parola gibi sayin; e-posta, Slack veya kaynak kod deposuna yapistirmayin.
-- Anahtari eklediginiz AI aracinin saglayicisi (Anthropic, Cursor vb.) yapılandirma dosyanizi okuyabilir. Bu riski kabul edilebilir kilmak icin **yalnizca `timestamps` kapsamli** bir anahtar kullanin; genis/tam yetki tanimlayin.
+- Anahtari eklediginiz AI aracinin saglayicisi (Anthropic, Cursor vb.) yapılandirma dosyanizi okuyabilir. Bu riski kabul edilebilir kilmak icin **yalnizca `timestamps` kapsamli** bir anahtar kullanin; genis kapsamli ya da tam yetkili anahtar **vermeyin**.
 - Anahtarinizin gizlendigini dusunuyorsaniz dashboard'daki **API Anahtarlari** sayfasindan hemen iptal edin ve yeni bir anahtar olusturun.
 
 ---

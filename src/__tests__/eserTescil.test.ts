@@ -280,7 +280,7 @@ describe('eser_tescil: happy path', () => {
 describe('eser_tescil: missing API key', () => {
   test('missing key → isError with API key mention', async () => {
     const result = await callHandler(
-      makeResolveWithError('IMZALA_API_KEY ayarlı değil — kurulum için README'),
+      makeResolveWithError('IMZALA_API_KEY ayarlı değil, kurulum için README sayfasına bakın.'),
       { file_base64: VALID_B64, file_name: 'test.pdf' },
     );
     expect(result.isError).toBe(true);

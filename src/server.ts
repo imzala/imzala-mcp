@@ -37,7 +37,7 @@ export function createServer(opts: CreateServerOpts): McpServer {
   }> {
     const { apiKey } = await opts.getAuthContext();
     if (!apiKey) {
-      return { errorText: 'IMZALA_API_KEY ayarlı değil — kurulum için README' };
+      return { errorText: 'IMZALA_API_KEY ayarlı değil, kurulum için README sayfasına bakın.' };
     }
     return {
       client: makeClient({ apiKey, baseUrl: opts.baseUrl, fetch: opts.fetch }),

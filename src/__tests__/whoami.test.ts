@@ -66,7 +66,7 @@ describe('whoami handler', () => {
 
   test('missing API key (resolveClient returns errorText): isError=true', async () => {
     const server = new McpServer({ name: 'test', version: '0.0.0' });
-    registerWhoami(server, makeResolveWithError('IMZALA_API_KEY ayarlı değil — kurulum için README'));
+    registerWhoami(server, makeResolveWithError('IMZALA_API_KEY ayarlı değil, kurulum için README sayfasına bakın.'));
     const tools = (server as unknown as PrivateServer)._registeredTools;
     const result = await tools['whoami'].handler({}, {});
     expect(result.isError).toBe(true);
