@@ -63,7 +63,7 @@
 | Degisken | Zorunlu | Aciklama |
 |----------|---------|----------|
 | `IMZALA_API_KEY` | Evet | `imz_` ile baslayan API anahtari |
-| `IMZALA_API_BASE_URL` | Hayir | Varsayilan: `https://test-api.imzala.org`. Prod'a geciste `https://api-prd.imzala.org` olacak |
+| `IMZALA_API_BASE_URL` | Hayir | Varsayilan: `https://api-prd.imzala.org` (uretim). Test ortami icin `https://test-api.imzala.org` ayarlanabilir |
 
 ---
 
