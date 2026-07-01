@@ -89,7 +89,7 @@ describe('stdio entry: main()', () => {
       fetch: unknown;
     };
     // Default base URL when IMZALA_API_BASE_URL is not set.
-    expect(opts.baseUrl).toBe('https://test-api.imzala.org');
+    expect(opts.baseUrl).toBe('https://api-prd.imzala.org');
     // getAuthContext must return the injected env key.
     expect(opts.getAuthContext()).toEqual({ apiKey: 'imz_x' });
     expect(connectSpy).toHaveBeenCalledOnce();

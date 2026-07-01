@@ -2,13 +2,13 @@
 
 **İmzala MCP server:** AI asistanınızın (Claude, Cursor vb.) İmzala hesabınıza erişmesini sağlar. API anahtarıyla kimlik doğrulaması yapılır; iki araç sunar: `whoami` (hesap ve kredi bilgisi) ile `eser_tescil` (RFC 3161 zaman damgası).
 
-> **@next ön-sürüm:** Bu paket şu an İmzala test ortamına (`https://test-api.imzala.org`) bağlıdır. Değerlendirme amaçlıdır; üretime alınmadan önce kapsam onayı ve avukat incelemesi tamamlanacaktır.
+> **v1.0.0:** Bu paket varsayılan olarak İmzala üretim ortamına (`https://api-prd.imzala.org`) bağlanır. Farklı bir uç nokta için `IMZALA_API_BASE_URL` değişkenini ayarlayın.
 
 ---
 
 ## Kurulum ve Yapılandırma
 
-`npx @imzala/mcp-server@next` komutuyla kurulum gerektirmeden çalışır. Aşağıdaki JSON bloğunu ilgili araç yapılandırma dosyasına ekleyin:
+`npx @imzala/mcp-server` komutuyla kurulum gerektirmeden çalışır. Aşağıdaki JSON bloğunu ilgili araç yapılandırma dosyasına ekleyin:
 
 ### Claude Desktop
 
@@ -19,7 +19,7 @@
   "mcpServers": {
     "imzala": {
       "command": "npx",
-      "args": ["-y", "@imzala/mcp-server@next"],
+      "args": ["-y", "@imzala/mcp-server"],
       "env": { "IMZALA_API_KEY": "imz_..." }
     }
   }
@@ -35,7 +35,7 @@
   "mcpServers": {
     "imzala": {
       "command": "npx",
-      "args": ["-y", "@imzala/mcp-server@next"],
+      "args": ["-y", "@imzala/mcp-server"],
       "env": { "IMZALA_API_KEY": "imz_..." }
     }
   }
@@ -51,7 +51,7 @@
   "mcpServers": {
     "imzala": {
       "command": "npx",
-      "args": ["-y", "@imzala/mcp-server@next"],
+      "args": ["-y", "@imzala/mcp-server"],
       "env": { "IMZALA_API_KEY": "imz_..." }
     }
   }

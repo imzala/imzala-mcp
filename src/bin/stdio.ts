@@ -22,7 +22,7 @@ import { createServer } from '../server.js';
  */
 export async function main(env: NodeJS.ProcessEnv = process.env): Promise<void> {
   const apiKey = env.IMZALA_API_KEY;
-  const baseUrl = env.IMZALA_API_BASE_URL ?? 'https://test-api.imzala.org';
+  const baseUrl = env.IMZALA_API_BASE_URL ?? 'https://api-prd.imzala.org';
 
   if (!apiKey) {
     // Warn to stderr — not stdout — because stdout is the MCP JSON-RPC channel.
