@@ -22,8 +22,12 @@ export interface CreateServerOpts {
  * - Transport is NOT wired here (Task 6 — stdio); callers call
  *   `server.connect(transport)` themselves.
  */
+// Reported to MCP clients in the initialize handshake.
+// KEEP IN SYNC with package.json "version" on every release.
+const SERVER_VERSION = '1.0.1';
+
 export function createServer(opts: CreateServerOpts): McpServer {
-  const server = new McpServer({ name: 'imzala-mcp', version: '0.1.0' });
+  const server = new McpServer({ name: 'imzala-mcp', version: SERVER_VERSION });
 
   /**
    * Resolves the current API client for a single tool invocation.

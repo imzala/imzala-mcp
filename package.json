@@ -1,6 +1,6 @@
 {
   "name": "@imzala/mcp-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "İmzala MCP server — eser tescil (RFC3161 timestamp) over API key",
   "type": "module",
   "bin": {

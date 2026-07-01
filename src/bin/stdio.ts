@@ -12,6 +12,7 @@
  *   npx @imzala/mcp-server
  */
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { realpathSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { createServer } from '../server.js';
 
@@ -48,11 +49,19 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<void> 
 // Auto-run guard
 // ---------------------------------------------------------------------------
 // Only invoke main() when this file is the direct entry point (i.e. the
-// process was started with `node dist/bin/stdio.js`). When the module is
-// imported — e.g. in tests or by another script — this block is skipped.
+// process was started with `node dist/bin/stdio.js` or via the npm bin
+// shim). When the module is imported — e.g. in tests or by another script —
+// this block is skipped.
+//
+// argv[1] must be resolved through realpathSync: npm installs bin entries as
+// symlinks (node_modules/.bin/imzala-mcp -> dist/bin/stdio.js), while
+// import.meta.url always points at the real file. Comparing the raw argv[1]
+// against the real path silently fails under npx — the server never starts.
 function isMainModule(): boolean {
   try {
-    return fileURLToPath(import.meta.url) === process.argv[1];
+    const entry = process.argv[1];
+    if (!entry) return false;
+    return fileURLToPath(import.meta.url) === realpathSync(entry);
   } catch {
     return false;
   }
