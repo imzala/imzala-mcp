@@ -13,6 +13,7 @@
  */
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { realpathSync } from 'fs';
+import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from '../server.js';
 
@@ -57,12 +58,21 @@ export async function main(env: NodeJS.ProcessEnv = process.env): Promise<void> 
 // symlinks (node_modules/.bin/imzala-mcp -> dist/bin/stdio.js), while
 // import.meta.url always points at the real file. Comparing the raw argv[1]
 // against the real path silently fails under npx — the server never starts.
+//
+// The raw comparison is kept as a fallback for --preserve-symlinks-main
+// (there the loader does NOT realpath the main module, so import.meta.url
+// stays at the symlink and matches the unresolved argv[1] instead).
 function isMainModule(): boolean {
   try {
     const entry = process.argv[1];
     if (!entry) return false;
-    return fileURLToPath(import.meta.url) === realpathSync(entry);
-  } catch {
+    const self = fileURLToPath(import.meta.url);
+    return self === realpathSync(entry) || self === resolve(entry);
+  } catch (e) {
+    // Diagnose to stderr (NEVER stdout — that is the JSON-RPC channel):
+    // a silently-false guard is exactly how v1.0.0 shipped dead on arrival.
+    const msg = e instanceof Error ? e.message : String(e);
+    process.stderr.write(`imzala-mcp: entry guard error (treating as import): ${msg}\n`);
     return false;
   }
 }

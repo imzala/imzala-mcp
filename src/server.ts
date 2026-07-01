@@ -23,8 +23,9 @@ export interface CreateServerOpts {
  *   `server.connect(transport)` themselves.
  */
 // Reported to MCP clients in the initialize handshake.
-// KEEP IN SYNC with package.json "version" on every release.
-const SERVER_VERSION = '1.0.1';
+// KEEP IN SYNC with package.json "version" on every release
+// (enforced by a unit test in server.test.ts).
+export const SERVER_VERSION = '1.0.1';
 
 export function createServer(opts: CreateServerOpts): McpServer {
   const server = new McpServer({ name: 'imzala-mcp', version: SERVER_VERSION });

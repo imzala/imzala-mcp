@@ -1,6 +1,15 @@
 import { describe, test, expect, vi } from 'vitest';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { createServer } from '../server.js';
+import { createRequire } from 'module';
+import { createServer, SERVER_VERSION } from '../server.js';
+
+// SERVER_VERSION is a hardcoded constant (bundling constraints prevent a safe
+// runtime package.json read). This test is the drift guard: it already bit
+// once (v1.0.0 reported "0.1.0" in the MCP initialize handshake).
+test('SERVER_VERSION matches package.json version', () => {
+  const pkg = createRequire(import.meta.url)('../../package.json') as { version: string };
+  expect(SERVER_VERSION).toBe(pkg.version);
+});
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PrivateServer = { _registeredTools: Record<string, { handler: (...args: any[]) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> }> };
