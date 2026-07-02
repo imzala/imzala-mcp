@@ -1,4 +1,4 @@
-import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult } from './client.js';
+import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult } from './client.js';
 import { ImzalaApiError } from './client.js';
 
 /**
@@ -136,5 +136,36 @@ export function formatTemplateList(r: TemplateListResult): string {
   }
   lines.push('');
   lines.push(`Toplam: ${r.total} (sayfa ${r.page}, sayfa boyutu ${r.limit})`);
+  return lines.join('\n');
+}
+
+/**
+ * Formats a TemplateDetailResult into a human-readable Turkish summary,
+ * including the party list and the fillable variable catalog (slug, label,
+ * type, required flag, default source) needed to create a contract from
+ * this template.
+ */
+export function formatTemplateDetail(t: TemplateDetailResult): string {
+  const lines: string[] = [];
+  lines.push(`Şablon: ${t.name} [${t.id}]`);
+  if (t.description) lines.push(`Açıklama: ${t.description}`);
+  if (t.category) lines.push(`Kategori: ${t.category}`);
+  lines.push(`Sayfa sayısı: ${t.pages_count} sayfa, ${t.usage_count} kez kullanıldı`);
+  lines.push('');
+  lines.push('Taraflar:');
+  for (const p of t.parties) {
+    lines.push(`- ${p.label} (sıra ${p.order})${p.is_required ? ', zorunlu' : ''}`);
+  }
+  lines.push('');
+  if (t.variables.length === 0) {
+    lines.push('Bu şablonda doldurulabilir değişken yok.');
+  } else {
+    lines.push('Doldurulabilir değişkenler (sözleşme oluştururken kullanılır):');
+    for (const v of t.variables) {
+      const req = v.is_required ? ', zorunlu' : '';
+      const def = v.default_source ? `, otomatik kaynak: ${v.default_source}` : '';
+      lines.push(`- ${v.slug} (${v.label}), tip: ${v.item_type}${req}${def}`);
+    }
+  }
   return lines.join('\n');
 }
