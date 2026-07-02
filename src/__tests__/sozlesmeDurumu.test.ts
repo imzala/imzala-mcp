@@ -50,6 +50,18 @@ describe('formatContractStatus', () => {
     expect(out).toContain('Bekliyor'); // status TR
   });
 
+  test('does NOT leak the signing_url bearer link into output', () => {
+    // signing_url is a no-extra-auth bearer link; it must not flow to the AI provider.
+    const out = formatContractStatus(DEMAND as never);
+    expect(out).not.toContain('imza/p2');
+    expect(out).not.toContain('imza linki');
+  });
+
+  test('includes the neutral non-legal-proof disclaimer footer', () => {
+    const out = formatContractStatus(DEMAND as never);
+    expect(out).toContain('ispat teşkil etmez');
+  });
+
   test('shows PDF link when completed', () => {
     const completed = { ...DEMAND, status: 'COMPLETED', pdf_url: 'https://api-prd.imzala.org/sonuc/dem_1/pdf' };
     expect(formatContractStatus(completed as never)).toContain('https://api-prd.imzala.org/sonuc/dem_1/pdf');

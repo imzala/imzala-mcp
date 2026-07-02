@@ -85,6 +85,15 @@ Bu API anahtari hesabiniza erisim saglar ve her zaman damgasi isleminde **kredi 
 - Anahtari eklediginiz AI aracinin saglayicisi (Anthropic, Cursor vb.) yapılandirma dosyanizi okuyabilir. Bu riski kabul edilebilir kilmak icin, yukarida belirtilen kullanacaginiz araclara gore **en dar kapsam kombinasyonuyla** (`timestamps` / `demands` / `templates`, ihtiyaca gore) bir anahtar kullanin; genis kapsamli ya da tam yetkili anahtar **vermeyin**.
 - Anahtarinizin gizlendigini dusunuyorsaniz dashboard'daki **API Anahtarlari** sayfasindan hemen iptal edin ve yeni bir anahtar olusturun.
 
+### Veri akisi (onemli)
+
+Bu araclari kullandiginizda, sorguladiginiz veri, protokolun dogasi geregi kullandiginiz AI aracinin saglayicisinin (Anthropic, Cursor vb.) altyapisindan gecer ve onun veri isleme kosullarina tabi olur. Ozellikle:
+
+- `sozlesme_durumu` sozlesmenizdeki **karsi tarafin adini, soyadini, e-postasini ve imza tarihini** ciktida dondurur.
+- `imzali_pdf_indir` **tamamlanmis sozlesmenin tam icerigini** (varsa TC kimlik, adres, finansal veri dahil) dondurur.
+
+Bu veri, dashboard'da zaten gorebildiginiz ayni bilgidir; **İmzala.org bu aktarimi yapmaz**, hangi AI aracini kullanacaginiza siz karar verirsiniz. Sozlesmenizin karsi tarafina ait verileri bu sekilde islemeden once kendi veri sorumlusu yukumluluklerinizi degerlendirin.
+
 ---
 
 ## Araclar

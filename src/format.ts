@@ -109,7 +109,11 @@ export function formatContractStatus(d: DemandStatusResult): string {
     if (p.signed_at != null) {
       lines.push(`- ${name} (${p.email}): imzaladı (${p.signed_at})`);
     } else {
-      lines.push(`- ${name} (${p.email}): bekliyor, imza linki: ${p.signing_url}`);
+      // signing_url is a single-access bearer link (/imza/:party_id, no extra
+      // auth). It is intentionally NOT rendered here: this output flows to a
+      // third-party AI provider, and a leaked link would allow signing on the
+      // party's behalf. Send reminders through the dashboard instead.
+      lines.push(`- ${name} (${p.email}): bekliyor`);
     }
   }
   lines.push('');
@@ -117,6 +121,8 @@ export function formatContractStatus(d: DemandStatusResult): string {
   if (d.status === 'COMPLETED' && d.pdf_url) {
     lines.push(`İmzalı PDF: ${d.pdf_url}`);
   }
+  lines.push('');
+  lines.push('Not: Bu bilgi İmzala.org kayıtlarını yansıtır, bağımsız hukuki görüş veya ispat teşkil etmez.');
   return lines.join('\n');
 }
 
