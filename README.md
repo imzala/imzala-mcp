@@ -2,7 +2,7 @@
 
 **İmzala MCP server:** AI asistanınızın (Claude, Cursor vb.) İmzala hesabınıza erişmesini sağlar. API anahtarıyla kimlik doğrulaması yapılır; altı araç sunar: `whoami` (hesap ve kredi bilgisi), `eser_tescil` (RFC 3161 zaman damgası), `sozlesme_durumu` (sözleşme durumu ve imza takibi), `sablonlarim` (şablon listesi), `sablon_detay` (şablon detayı ve değişken kataloğu), `imzali_pdf_indir` (tamamlanmış sözleşmenin imzalı PDF'ini indirme).
 
-> **v1.0.0:** Bu paket varsayılan olarak İmzala üretim ortamına (`https://api-prd.imzala.org`) bağlanır. Farklı bir uç nokta için `IMZALA_API_BASE_URL` değişkenini ayarlayın.
+> **Not:** Bu paket varsayılan olarak İmzala üretim ortamına (`https://api-prd.imzala.org`) bağlanır. Farklı bir uç nokta için `IMZALA_API_BASE_URL` değişkenini ayarlayın.
 
 ---
 
@@ -72,7 +72,7 @@
 1. [app.imzala.org](https://app.imzala.org) adresinden hesabiniza giris yapin.
 2. Saga ustten **Hesap ayarlari** bölümüne gidin.
 3. **API Anahtarlari** sekmesini acin ve **Yeni Anahtar** butonuna tiklayin.
-4. Kapsam seciminde **sadece `timestamps`** isaretleyin. Hesabiniza genis erisim tanimayan minimal bir kapsam secmek, olasiligi dusuk bir sorun durumunda hasari sinirlar.
+4. Kapsam seciminde, hangi araclari kullanacaginiza gore en dar (minimal) kombinasyonu isaretleyin: `eser_tescil` ve `whoami` icin `timestamps` yeterlidir; `sozlesme_durumu` ve `imzali_pdf_indir` icin `demands` gerekir; `sablonlarim` ve `sablon_detay` icin `templates` gerekir. Ihtiyaciniz olmayan kapsami eklemeyin, hesabiniza genis erisim tanimayan minimal bir kapsam secmek, olasiligi dusuk bir sorun durumunda hasari sinirlar.
 5. Olusan anahtari kopyalayin ve yukaridaki yapilandirma dosyasina girin.
 
 ---
@@ -82,7 +82,7 @@
 Bu API anahtari hesabiniza erisim saglar ve her zaman damgasi isleminde **kredi harcar.** Asagidaki kurallara uyun:
 
 - Anahtari bir parola gibi sayin; e-posta, Slack veya kaynak kod deposuna yapistirmayin.
-- Anahtari eklediginiz AI aracinin saglayicisi (Anthropic, Cursor vb.) yapılandirma dosyanizi okuyabilir. Bu riski kabul edilebilir kilmak icin **yalnizca `timestamps` kapsamli** bir anahtar kullanin; genis kapsamli ya da tam yetkili anahtar **vermeyin**.
+- Anahtari eklediginiz AI aracinin saglayicisi (Anthropic, Cursor vb.) yapılandirma dosyanizi okuyabilir. Bu riski kabul edilebilir kilmak icin, yukarida belirtilen kullanacaginiz araclara gore **en dar kapsam kombinasyonuyla** (`timestamps` / `demands` / `templates`, ihtiyaca gore) bir anahtar kullanin; genis kapsamli ya da tam yetkili anahtar **vermeyin**.
 - Anahtarinizin gizlendigini dusunuyorsaniz dashboard'daki **API Anahtarlari** sayfasindan hemen iptal edin ve yeni bir anahtar olusturun.
 
 ---
@@ -146,7 +146,7 @@ Taraflar:
 - Ahmet Yilmaz (ahmet@ornek.com): imzaladı (2026-06-30T10:15:00Z)
 - Mehmet Demir (mehmet@ornek.com): bekliyor, imza linki: https://e.imzala.org/imza/abc123
 
-Sonuç sayfası: https://app.imzala.org/sonuc/xyz789
+Sonuç sayfası: https://e.imzala.org/sonuc/xyz789
 ```
 
 ---
