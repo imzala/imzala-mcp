@@ -123,6 +123,7 @@ export function makeClient(o: ImzalaClientOpts): {
   getDemand(id: string): Promise<DemandStatusResult>;
   listTemplates(page?: number, limit?: number): Promise<TemplateListResult>;
   getTemplate(id: string): Promise<TemplateDetailResult>;
+  downloadPdf(url: string): Promise<Buffer>;
 } {
   const { apiKey, baseUrl, fetch: fetchFn } = o;
 
@@ -215,5 +216,14 @@ export function makeClient(o: ImzalaClientOpts): {
     return body.data;
   }
 
-  return { getMe, createTimestamp, getDemand, listTemplates, getTemplate };
+  async function downloadPdf(url: string): Promise<Buffer> {
+    const res = await fetchFn(url, { method: 'GET' });
+    if (!res.ok) {
+      throw await parseErrorBody(res, res.status);
+    }
+    const ab = await res.arrayBuffer();
+    return Buffer.from(ab);
+  }
+
+  return { getMe, createTimestamp, getDemand, listTemplates, getTemplate, downloadPdf };
 }
