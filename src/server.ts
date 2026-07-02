@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { makeClient } from './client.js';
 import { registerWhoami } from './tools/whoami.js';
 import { registerEserTescil } from './tools/eserTescil.js';
+import { registerSozlesmeDurumu } from './tools/sozlesmeDurumu.js';
 
 export interface CreateServerOpts {
   /** Called on every tool invocation to obtain the current auth context. Must be cheap (reads env / header). */
@@ -51,6 +52,7 @@ export function createServer(opts: CreateServerOpts): McpServer {
 
   registerWhoami(server, resolveClient);
   registerEserTescil(server, resolveClient);
+  registerSozlesmeDurumu(server, resolveClient);
 
   return server;
 }

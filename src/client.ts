@@ -24,6 +24,27 @@ export interface TimestampResult {
   credits_remaining: number;
 }
 
+export interface DemandParty {
+  party_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  signed: boolean;      // NOTE: backend bug — counts all fields; do NOT trust. Use signed_at.
+  signed_at: string | null;
+  signing_url: string;
+}
+
+export interface DemandStatusResult {
+  id: string;
+  title: string;
+  status: 'PENDING' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED';
+  created_at: string;
+  completed_at: string | null;
+  parties: DemandParty[];
+  result_url: string;
+  pdf_url: string | null;
+}
+
 export class ImzalaApiError extends Error {
   constructor(
     public readonly status: number,
@@ -57,6 +78,7 @@ export function makeClient(o: ImzalaClientOpts): {
     ownerLastName?: string;
     idempotencyKey?: string;
   }): Promise<TimestampResult>;
+  getDemand(id: string): Promise<DemandStatusResult>;
 } {
   const { apiKey, baseUrl, fetch: fetchFn } = o;
 
@@ -113,5 +135,17 @@ export function makeClient(o: ImzalaClientOpts): {
     return body.data;
   }
 
-  return { getMe, createTimestamp };
+  async function getDemand(id: string): Promise<DemandStatusResult> {
+    const res = await fetchFn(`${baseUrl}/api/v1/demands/${encodeURIComponent(id)}`, {
+      method: 'GET',
+      headers: { 'X-API-Key': apiKey },
+    });
+    if (!res.ok) {
+      throw await parseErrorBody(res, res.status);
+    }
+    const body = await res.json() as { success: boolean; data: DemandStatusResult };
+    return body.data;
+  }
+
+  return { getMe, createTimestamp, getDemand };
 }

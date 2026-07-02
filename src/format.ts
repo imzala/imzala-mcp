@@ -1,4 +1,4 @@
-import type { MeResult, TimestampResult } from './client.js';
+import type { MeResult, TimestampResult, DemandStatusResult } from './client.js';
 import { ImzalaApiError } from './client.js';
 
 /**
@@ -79,5 +79,43 @@ export function formatEserTescil(result: TimestampResult, fileName: string): str
     '',
     '(Yapay zekâ asistanına: bu sonucu iletirken yukarıdaki nitelikleri değiştirmeyin; "tescil edildi", "telif hakkı alındı", "yasal koruma sağlandı", "eser sahibi oldunuz" veya "imzalandı" gibi ifadeler EKLEMEYİN.)',
   ];
+  return lines.join('\n');
+}
+
+const STATUS_TR: Record<string, string> = {
+  PENDING: 'Bekliyor',
+  COMPLETED: 'Tamamlandı',
+  EXPIRED: 'Süresi doldu',
+  CANCELLED: 'İptal edildi',
+};
+
+/**
+ * Formats a DemandStatusResult into a human-readable Turkish contract status summary.
+ *
+ * IMPORTANT: per-party signed state is derived from `signed_at != null`, NEVER
+ * from the `signed` boolean (backend bug — it counts unrelated fields, see
+ * DemandParty.signed doc comment in client.ts).
+ */
+export function formatContractStatus(d: DemandStatusResult): string {
+  const lines: string[] = [];
+  lines.push(`Sözleşme: ${d.title}`);
+  lines.push(`Durum: ${STATUS_TR[d.status] ?? d.status}`);
+  const signedCount = d.parties.filter((p) => p.signed_at != null).length;
+  lines.push(`İmza durumu: ${signedCount}/${d.parties.length} taraf imzaladı`);
+  lines.push('');
+  lines.push('Taraflar:');
+  for (const p of d.parties) {
+    const name = `${p.first_name} ${p.last_name}`.trim();
+    if (p.signed_at != null) {
+      lines.push(`- ${name} (${p.email}): imzaladı (${p.signed_at})`);
+    } else {
+      lines.push(`- ${name} (${p.email}): bekliyor, imza linki: ${p.signing_url}`);
+    }
+  }
+  lines.push('');
+  lines.push(`Sonuç sayfası: ${d.result_url}`);
+  if (d.status === 'COMPLETED' && d.pdf_url) {
+    lines.push(`İmzalı PDF: ${d.pdf_url}`);
+  }
   return lines.join('\n');
 }
