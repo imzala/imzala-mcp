@@ -45,6 +45,29 @@ export interface DemandStatusResult {
   pdf_url: string | null;
 }
 
+export interface TemplatePartyBrief {
+  id: string;
+  order: number;
+  label: string;
+  is_required: boolean;
+}
+
+export interface TemplateListItem {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  usage_count: number;
+  parties: TemplatePartyBrief[];
+}
+
+export interface TemplateListResult {
+  templates: TemplateListItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export class ImzalaApiError extends Error {
   constructor(
     public readonly status: number,
@@ -79,6 +102,7 @@ export function makeClient(o: ImzalaClientOpts): {
     idempotencyKey?: string;
   }): Promise<TimestampResult>;
   getDemand(id: string): Promise<DemandStatusResult>;
+  listTemplates(page?: number, limit?: number): Promise<TemplateListResult>;
 } {
   const { apiKey, baseUrl, fetch: fetchFn } = o;
 
@@ -147,5 +171,17 @@ export function makeClient(o: ImzalaClientOpts): {
     return body.data;
   }
 
-  return { getMe, createTimestamp, getDemand };
+  async function listTemplates(page = 1, limit = 20): Promise<TemplateListResult> {
+    const res = await fetchFn(`${baseUrl}/api/v1/templates?page=${page}&limit=${limit}`, {
+      method: 'GET',
+      headers: { 'X-API-Key': apiKey },
+    });
+    if (!res.ok) {
+      throw await parseErrorBody(res, res.status);
+    }
+    const body = await res.json() as { success: boolean; data: TemplateListResult };
+    return body.data;
+  }
+
+  return { getMe, createTimestamp, getDemand, listTemplates };
 }

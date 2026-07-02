@@ -1,4 +1,4 @@
-import type { MeResult, TimestampResult, DemandStatusResult } from './client.js';
+import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult } from './client.js';
 import { ImzalaApiError } from './client.js';
 
 /**
@@ -117,5 +117,24 @@ export function formatContractStatus(d: DemandStatusResult): string {
   if (d.status === 'COMPLETED' && d.pdf_url) {
     lines.push(`İmzalı PDF: ${d.pdf_url}`);
   }
+  return lines.join('\n');
+}
+
+/**
+ * Formats a TemplateListResult into a human-readable Turkish list of
+ * contract templates, including party count and usage count per template.
+ */
+export function formatTemplateList(r: TemplateListResult): string {
+  if (r.templates.length === 0) {
+    return 'Hiç şablon bulunamadı.';
+  }
+  const lines: string[] = [];
+  for (const t of r.templates) {
+    const desc = t.description ? ` (${t.description})` : '';
+    const cat = t.category ? `, kategori: ${t.category}` : '';
+    lines.push(`- ${t.name}${desc} [${t.id}]${cat}, ${t.parties.length} taraf, ${t.usage_count} kez kullanıldı`);
+  }
+  lines.push('');
+  lines.push(`Toplam: ${r.total} (sayfa ${r.page}, sayfa boyutu ${r.limit})`);
   return lines.join('\n');
 }

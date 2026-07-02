@@ -3,6 +3,7 @@ import { makeClient } from './client.js';
 import { registerWhoami } from './tools/whoami.js';
 import { registerEserTescil } from './tools/eserTescil.js';
 import { registerSozlesmeDurumu } from './tools/sozlesmeDurumu.js';
+import { registerSablonlarim } from './tools/sablonlarim.js';
 
 export interface CreateServerOpts {
   /** Called on every tool invocation to obtain the current auth context. Must be cheap (reads env / header). */
@@ -53,6 +54,7 @@ export function createServer(opts: CreateServerOpts): McpServer {
   registerWhoami(server, resolveClient);
   registerEserTescil(server, resolveClient);
   registerSozlesmeDurumu(server, resolveClient);
+  registerSablonlarim(server, resolveClient);
 
   return server;
 }

@@ -28,11 +28,11 @@ describe('createServer', () => {
     expect(server).toBeInstanceOf(McpServer);
   });
 
-  test('registers exactly three tools: whoami, eser_tescil, sozlesme_durumu', () => {
+  test('registers exactly four tools: whoami, eser_tescil, sozlesme_durumu, sablonlarim', () => {
     const server = createServer(makeTestOpts('imz_x'));
     const tools = (server as unknown as PrivateServer)._registeredTools;
     const names = Object.keys(tools).sort();
-    expect(names).toEqual(['eser_tescil', 'sozlesme_durumu', 'whoami']);
+    expect(names).toEqual(['eser_tescil', 'sablonlarim', 'sozlesme_durumu', 'whoami']);
   });
 
   test('whoami handler with no apiKey returns isError tool result (does not throw)', async () => {
