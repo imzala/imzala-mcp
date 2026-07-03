@@ -72,7 +72,7 @@
 1. [app.imzala.org](https://app.imzala.org) adresinden hesabiniza giris yapin.
 2. Saga ustten **Hesap ayarlari** bölümüne gidin.
 3. **API Anahtarlari** sekmesini acin ve **Yeni Anahtar** butonuna tiklayin.
-4. Kapsam seciminde, hangi araclari kullanacaginiza gore en dar (minimal) kombinasyonu isaretleyin: `eser_tescil` ve `whoami` icin `timestamps` yeterlidir; `sozlesme_durumu` ve `imzali_pdf_indir` icin `demands` gerekir; `sablonlarim` ve `sablon_detay` icin `templates` gerekir. Ihtiyaciniz olmayan kapsami eklemeyin, hesabiniza genis erisim tanimayan minimal bir kapsam secmek, olasiligi dusuk bir sorun durumunda hasari sinirlar.
+4. Kapsam seciminde, hangi araclari kullanacaginiza gore en dar (minimal) kombinasyonu isaretleyin. Bu MCP sunucusundaki araclarin HEPSI salt-okunurdur (hicbiri sozlesme olusturmaz ya da degistirmez), bu yuzden **salt-okunur kapsam** vermeniz onerilir: `eser_tescil` ve `whoami` icin `timestamps`; `sozlesme_durumu` ve `imzali_pdf_indir` icin `demands:read`; `sablonlarim` ve `sablon_detay` icin `templates:read`. Dashboard'da **"Yapay zeka asistani icin salt-okunur (onerilen)"** hazir secenegi tam bu kombinasyonu (`timestamps` + `demands:read` + `templates:read`) tek tikla secer. Yazma yetkisi (`demands:write`) veren bir anahtar VERMEYIN, bu araclarin hicbiri buna ihtiyac duymaz. (Eski, ayrimsiz `demands`/`templates` kapsamli anahtarlar da calisir ama yazma yetkisi de icerdiginden onerilmez.)
 5. Olusan anahtari kopyalayin ve yukaridaki yapilandirma dosyasina girin.
 
 ---
@@ -82,7 +82,7 @@
 Bu API anahtari hesabiniza erisim saglar ve her zaman damgasi isleminde **kredi harcar.** Asagidaki kurallara uyun:
 
 - Anahtari bir parola gibi sayin; e-posta, Slack veya kaynak kod deposuna yapistirmayin.
-- Anahtari eklediginiz AI aracinin saglayicisi (Anthropic, Cursor vb.) yapılandirma dosyanizi okuyabilir. Bu riski kabul edilebilir kilmak icin, yukarida belirtilen kullanacaginiz araclara gore **en dar kapsam kombinasyonuyla** (`timestamps` / `demands` / `templates`, ihtiyaca gore) bir anahtar kullanin; genis kapsamli ya da tam yetkili anahtar **vermeyin**.
+- Anahtari eklediginiz AI aracinin saglayicisi (Anthropic, Cursor vb.) yapılandirma dosyanizi okuyabilir. Bu riski kabul edilebilir kilmak icin **salt-okunur** bir anahtar kullanin (`timestamps` + `demands:read` + `templates:read`, dashboard'daki "Yapay zeka asistani icin salt-okunur" secenegi); yazma yetkisi (`demands:write`) veren ya da tam yetkili anahtar **vermeyin**. Boylece anahtar sizsa bile ucuncu taraf sozlesmelerinizi degistiremez, yalnizca okuyabilir.
 - Anahtarinizin gizlendigini dusunuyorsaniz dashboard'daki **API Anahtarlari** sayfasindan hemen iptal edin ve yeni bir anahtar olusturun.
 
 ### Veri akisi (onemli)
@@ -236,7 +236,7 @@ JVBERi0xLjcKJ...
 
 ---
 
-> **Not:** `sozlesme_durumu`, `sablonlarim`, `sablon_detay` ve `imzali_pdf_indir` araçları, API anahtarında `demands` kapsamı (scope) gerektirir. Bu kapsamlı bir anahtar, salt-okunur sorgulamanın ötesinde `demands` üzerinde yeni sözleşme de oluşturabilir (ör. gelecekte eklenecek yazma araçları aynı kapsamı kullanır); bu dört salt-okunur araç için anahtar oluştururken yine de mümkün olan en dar kapsamı seçmeniz önerilir.
+> **Not:** Bu MCP sunucusundaki dört sözleşme/şablon aracı (`sozlesme_durumu`, `imzali_pdf_indir`, `sablonlarim`, `sablon_detay`) yalnızca **okuma** kapsamı gerektirir: `sozlesme_durumu` + `imzali_pdf_indir` için `demands:read`, `sablonlarim` + `sablon_detay` için `templates:read`. Bu salt-okunur kapsamlar sözleşme oluşturma veya değiştirme yetkisi VERMEZ, dolayısıyla bir yapay zeka asistanına vermek için en güvenli seçimdir. Dashboard'daki "Yapay zeka asistanı için salt-okunur (önerilen)" hazır seçeneği bu kombinasyonu tek tıkla seçer.
 
 ---
 
