@@ -4,10 +4,16 @@
  *
  * WHY THIS EXISTS: v1.0.0–1.1.1 shipped a broken `eser_tescil` (every real
  * upload 500'd) because the unit tests + smoke tests used a FAKE API key and
- * never reached the real backend. This gate drives the ACTUAL built server
- * (dist/bin/stdio.js) over stdio, with a REAL API key against a REAL backend,
- * and asserts real tool output. It runs as part of `prepublishOnly`, so a
- * broken build can never be published again.
+ * never reached the real backend. This gate connects to the ACTUAL built
+ * server (dist/bin/stdio.js) using the OFFICIAL MCP client — the very same
+ * `@modelcontextprotocol/sdk` protocol implementation that Claude Desktop,
+ * Cursor and other MCP hosts use — with a REAL API key against a REAL backend,
+ * calls every tool, and asserts its real output. It runs as part of
+ * `prepublishOnly`, so a broken build can never be published again.
+ *
+ * It is a genuine black-box integration test: real spawned server process,
+ * real MCP stdio transport, real JSON-RPC handshake + tools/list + tools/call,
+ * real HTTPS to the backend, real assertions. No mocks anywhere.
  *
  * REQUIRED env:
  *   IMZALA_E2E_API_KEY   — a real `imz_...` key with timestamps + templates
@@ -23,7 +29,8 @@
  *   IMZALA_E2E_SKIP=1               — escape hatch: skip the whole gate (loudly
  *                                     logged). Use only in a real emergency.
  */
-import { spawn } from 'child_process';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { writeFileSync, mkdtempSync } from 'fs';
@@ -36,8 +43,8 @@ const RESET = '\x1b[0m', RED = '\x1b[31m', GREEN = '\x1b[32m', YELLOW = '\x1b[33
 const ok = (m) => console.log(`${GREEN}  ✓${RESET} ${m}`);
 const info = (m) => console.log(`${DIM}    ${m}${RESET}`);
 const warn = (m) => console.log(`${YELLOW}  ⚠${RESET} ${m}`);
-function fail(m) { console.error(`${RED}  ✗ ${m}${RESET}`); process.exitCode = 1; throw new GateError(m); }
 class GateError extends Error {}
+function fail(m) { throw new GateError(m); }
 
 if (process.env.IMZALA_E2E_SKIP === '1') {
   console.log(`${YELLOW}⚠ IMZALA_E2E_SKIP=1 — SKIPPING the MCP e2e pre-publish gate. Publishing UNVERIFIED.${RESET}`);
@@ -49,8 +56,8 @@ const BASE_URL = process.env.IMZALA_E2E_BASE_URL || 'https://api-prd.imzala.org'
 
 if (!API_KEY) {
   console.error(`${RED}✗ MCP e2e gate: IMZALA_E2E_API_KEY is not set.${RESET}`);
-  console.error(`  This gate drives the real server against a real backend so a broken`);
-  console.error(`  build cannot be published. Export a real key and retry:`);
+  console.error(`  This gate connects the official MCP client to the real server against a`);
+  console.error(`  real backend so a broken build cannot be published. Export a key and retry:`);
   console.error(`${DIM}    export IMZALA_E2E_API_KEY=imz_...`);
   console.error(`    export IMZALA_E2E_BASE_URL=https://test-api.imzala.org   # optional, avoids prod credits`);
   console.error(`    npm publish${RESET}`);
@@ -58,147 +65,98 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-/** Drive the built stdio server: send initialize + a batch of tools/call, collect responses by id. */
-function driveServer(calls) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [SERVER], {
-      env: { ...process.env, IMZALA_API_KEY: API_KEY, IMZALA_API_BASE_URL: BASE_URL },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    const responses = new Map();
-    let buf = '';
-    const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('e2e timeout (60s)')); }, 60_000);
-
-    child.stdout.on('data', (d) => {
-      buf += d.toString();
-      let nl;
-      while ((nl = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, nl).trim();
-        buf = buf.slice(nl + 1);
-        if (!line) continue;
-        let msg;
-        try { msg = JSON.parse(line); } catch { continue; }
-        if (msg.id != null) responses.set(msg.id, msg);
-      }
-      // Resolve once every requested id has a response.
-      if (calls.every((c) => responses.has(c.id))) {
-        clearTimeout(timer);
-        child.stdin.end();
-        child.kill('SIGTERM');
-        resolve(responses);
-      }
-    });
-    child.stderr.on('data', () => { /* diagnostics only; never on stdout */ });
-    child.on('error', (e) => { clearTimeout(timer); reject(e); });
-
-    // Handshake, then all calls.
-    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 0, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'e2e', version: '0' } } }) + '\n');
-    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
-    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 100, method: 'tools/list' }) + '\n');
-    for (const c of calls) {
-      child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: c.id, method: 'tools/call', params: { name: c.name, arguments: c.args } }) + '\n');
-    }
-  });
-}
-
-const text = (msg) => msg?.result?.content?.[0]?.text ?? '';
-const isErr = (msg) => msg?.result?.isError === true;
+/** Text of a tools/call result's first content block. */
+const textOf = (res) => res?.content?.find?.((c) => c.type === 'text')?.text ?? '';
+const isErr = (res) => res?.isError === true;
 
 async function main() {
-  console.log(`\n${GREEN}▶ MCP e2e pre-publish gate${RESET}  ${DIM}(base: ${BASE_URL})${RESET}`);
+  console.log(`\n${GREEN}▶ MCP e2e pre-publish gate${RESET}  ${DIM}(official @modelcontextprotocol/sdk client → ${BASE_URL})${RESET}`);
 
-  // Build the call batch. whoami + sablonlarim are key-only; the rest chain.
-  const EXPECTED_TOOLS = ['eser_tescil', 'imzali_pdf_indir', 'sablon_detay', 'sablonlarim', 'sozlesme_durumu', 'whoami'];
+  // Connect exactly like a real MCP host: spawn the built server over stdio and
+  // run the JSON-RPC initialize handshake. StdioClientTransport starts the
+  // child process; Client.connect() performs `initialize`.
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [SERVER],
+    env: { ...getDefaultEnvironment(), IMZALA_API_KEY: API_KEY, IMZALA_API_BASE_URL: BASE_URL },
+    stderr: 'ignore',
+  });
+  const client = new Client({ name: 'imzala-mcp-e2e', version: '1.0.0' }, { capabilities: {} });
+  await client.connect(transport);
 
-  // --- Round 1: whoami + sablonlarim (discover a template id for round 2) ---
-  const r1 = await driveServer([
-    { id: 1, name: 'whoami', args: {} },
-    { id: 2, name: 'sablonlarim', args: {} },
-  ]);
+  try {
+    // --- tools/list ---
+    const EXPECTED = ['eser_tescil', 'imzali_pdf_indir', 'sablon_detay', 'sablonlarim', 'sozlesme_durumu', 'whoami'];
+    const listed = (await client.listTools()).tools.map((t) => t.name).sort();
+    if (EXPECTED.some((t) => !listed.includes(t))) fail(`tools/list missing tools. got: ${listed.join(',')}`);
+    ok(`tools/list — 6 tools present (${listed.join(', ')})`);
 
-  // tools/list
-  const tools = (r1.get(100)?.result?.tools ?? []).map((t) => t.name).sort();
-  if (EXPECTED_TOOLS.some((t) => !tools.includes(t))) fail(`tools/list missing tools. got: ${tools.join(',')}`);
-  ok(`tools/list — 6 tools present (${tools.join(', ')})`);
+    // --- whoami ---
+    const who = await client.callTool({ name: 'whoami', arguments: {} });
+    if (isErr(who) || !/Hesap:/.test(textOf(who)) || !/[Kk]redi/.test(textOf(who))) fail(`whoami failed: ${textOf(who).slice(0, 120)}`);
+    ok('whoami — account + credit returned');
 
-  // whoami
-  const who = r1.get(1);
-  if (isErr(who) || !/Hesap:/.test(text(who)) || !/[Kk]redi/.test(text(who))) fail(`whoami failed: ${text(who).slice(0, 120)}`);
-  ok('whoami — account + credit returned');
+    // --- sablonlarim (discover a template id) ---
+    const list = await client.callTool({ name: 'sablonlarim', arguments: {} });
+    if (isErr(list)) fail(`sablonlarim failed: ${textOf(list).slice(0, 120)}`);
+    const templateId = (textOf(list).match(/\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/) || [])[1];
+    ok(`sablonlarim — template list returned${templateId ? ` (found ${templateId.slice(0, 8)}…)` : ' (no templates)'}`);
 
-  // sablonlarim
-  const list = r1.get(2);
-  if (isErr(list)) fail(`sablonlarim failed: ${text(list).slice(0, 120)}`);
-  const templateId = (text(list).match(/\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/) || [])[1];
-  ok(`sablonlarim — template list returned${templateId ? ` (found ${templateId.slice(0, 8)}…)` : ' (no templates)'}`);
-
-  // --- Round 2: sablon_detay + eser_tescil (+ optional demand tools) ---
-  const round2 = [];
-  if (templateId) round2.push({ id: 3, name: 'sablon_detay', args: { template_id: templateId } });
-
-  let tsFile;
-  const skipTs = process.env.IMZALA_E2E_SKIP_TIMESTAMP === '1';
-  if (!skipTs) {
-    const dir = mkdtempSync(join(tmpdir(), 'imzala-mcp-e2e-'));
-    tsFile = join(dir, 'e2e-preflight.txt');
-    writeFileSync(tsFile, `imzala mcp e2e preflight ${new Date().toISOString()}\n`);
-    round2.push({ id: 4, name: 'eser_tescil', args: { file_path: tsFile, file_name: 'e2e-preflight.txt', description: 'mcp e2e gate' } });
-  }
-
-  const demandId = process.env.IMZALA_E2E_DEMAND_ID;
-  if (demandId) round2.push({ id: 5, name: 'sozlesme_durumu', args: { demand_id: demandId } });
-
-  const completedDemandId = process.env.IMZALA_E2E_COMPLETED_DEMAND_ID;
-  let pdfPath;
-  if (completedDemandId) {
-    const dir = mkdtempSync(join(tmpdir(), 'imzala-mcp-e2e-pdf-'));
-    pdfPath = join(dir, 'e2e.pdf');
-    round2.push({ id: 6, name: 'imzali_pdf_indir', args: { demand_id: completedDemandId, save_path: pdfPath } });
-  }
-
-  const r2 = round2.length ? await driveServer(round2) : new Map();
-
-  if (templateId) {
-    const det = r2.get(3);
-    if (isErr(det) || !/Şablon:/.test(text(det))) fail(`sablon_detay failed: ${text(det).slice(0, 120)}`);
-    ok('sablon_detay — template detail + variables returned');
-  } else {
-    warn('sablon_detay — skipped (account has no templates)');
-  }
-
-  if (skipTs) {
-    warn('eser_tescil — skipped (IMZALA_E2E_SKIP_TIMESTAMP=1)');
-  } else {
-    const ts = r2.get(4);
-    // THE regression this gate exists for: a real file must produce a real stamp.
-    if (isErr(ts) || !/KAMU SM|zaman damgas|dogrula|doğrula/i.test(text(ts))) {
-      fail(`eser_tescil failed (the exact v1.0.0 DOA bug): ${text(ts).slice(0, 200)}`);
+    // --- sablon_detay ---
+    if (templateId) {
+      const det = await client.callTool({ name: 'sablon_detay', arguments: { template_id: templateId } });
+      if (isErr(det) || !/Şablon:/.test(textOf(det))) fail(`sablon_detay failed: ${textOf(det).slice(0, 120)}`);
+      ok('sablon_detay — template detail + variables returned');
+    } else {
+      warn('sablon_detay — skipped (account has no templates)');
     }
-    ok('eser_tescil — real RFC3161 timestamp created');
-  }
 
-  if (demandId) {
-    const st = r2.get(5);
-    if (isErr(st) || !/Sözleşme:/.test(text(st))) fail(`sozlesme_durumu failed: ${text(st).slice(0, 120)}`);
-    ok('sozlesme_durumu — contract status returned');
-    if (/undefined/.test(text(st))) fail('sozlesme_durumu output contains "undefined" (masked-field tolerant-read regression)');
-  } else {
-    info('sozlesme_durumu — skipped (set IMZALA_E2E_DEMAND_ID to test)');
-  }
+    // --- eser_tescil (THE regression this gate exists for) ---
+    if (process.env.IMZALA_E2E_SKIP_TIMESTAMP === '1') {
+      warn('eser_tescil — skipped (IMZALA_E2E_SKIP_TIMESTAMP=1)');
+    } else {
+      const dir = mkdtempSync(join(tmpdir(), 'imzala-mcp-e2e-'));
+      const tsFile = join(dir, 'e2e-preflight.txt');
+      writeFileSync(tsFile, `imzala mcp e2e preflight ${new Date().toISOString()}\n`);
+      const ts = await client.callTool({ name: 'eser_tescil', arguments: { file_path: tsFile, file_name: 'e2e-preflight.txt', description: 'mcp e2e gate' } });
+      if (isErr(ts) || !/KAMU SM|zaman damgas|do[gğ]rula/i.test(textOf(ts))) {
+        fail(`eser_tescil failed (the exact v1.0.0 DOA bug): ${textOf(ts).slice(0, 200)}`);
+      }
+      ok('eser_tescil — real RFC3161 timestamp created');
+    }
 
-  if (completedDemandId) {
-    const pdf = r2.get(6);
-    if (isErr(pdf) || !/kaydedildi|base64/i.test(text(pdf))) fail(`imzali_pdf_indir failed: ${text(pdf).slice(0, 120)}`);
-    ok('imzali_pdf_indir — signed PDF downloaded');
-  } else {
-    info('imzali_pdf_indir — skipped (set IMZALA_E2E_COMPLETED_DEMAND_ID to test)');
-  }
+    // --- sozlesme_durumu (optional) ---
+    const demandId = process.env.IMZALA_E2E_DEMAND_ID;
+    if (demandId) {
+      const st = await client.callTool({ name: 'sozlesme_durumu', arguments: { demand_id: demandId } });
+      if (isErr(st) || !/Sözleşme:/.test(textOf(st))) fail(`sozlesme_durumu failed: ${textOf(st).slice(0, 120)}`);
+      if (/undefined/.test(textOf(st))) fail('sozlesme_durumu output contains "undefined" (masked-field tolerant-read regression)');
+      ok('sozlesme_durumu — contract status returned');
+    } else {
+      info('sozlesme_durumu — skipped (set IMZALA_E2E_DEMAND_ID to test)');
+    }
 
-  console.log(`${GREEN}✔ MCP e2e gate passed — safe to publish.${RESET}\n`);
+    // --- imzali_pdf_indir (optional) ---
+    const completedDemandId = process.env.IMZALA_E2E_COMPLETED_DEMAND_ID;
+    if (completedDemandId) {
+      const dir = mkdtempSync(join(tmpdir(), 'imzala-mcp-e2e-pdf-'));
+      const pdfPath = join(dir, 'e2e.pdf');
+      const pdf = await client.callTool({ name: 'imzali_pdf_indir', arguments: { demand_id: completedDemandId, save_path: pdfPath } });
+      if (isErr(pdf) || !/kaydedildi|base64/i.test(textOf(pdf))) fail(`imzali_pdf_indir failed: ${textOf(pdf).slice(0, 120)}`);
+      ok('imzali_pdf_indir — signed PDF downloaded');
+    } else {
+      info('imzali_pdf_indir — skipped (set IMZALA_E2E_COMPLETED_DEMAND_ID to test)');
+    }
+
+    console.log(`${GREEN}✔ MCP e2e gate passed — safe to publish.${RESET}\n`);
+  } finally {
+    await client.close();
+  }
 }
 
 main().catch((e) => {
-  if (!(e instanceof GateError)) console.error(`${RED}✗ MCP e2e gate error: ${e.message}${RESET}`);
+  if (e instanceof GateError) console.error(`${RED}  ✗ ${e.message}${RESET}`);
+  else console.error(`${RED}  ✗ MCP e2e gate error: ${e.message}${RESET}`);
   console.error(`${RED}✘ MCP e2e gate FAILED — publish aborted.${RESET}\n`);
   process.exit(1);
 });
