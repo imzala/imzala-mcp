@@ -106,6 +106,42 @@ export class ImzalaApiError extends Error {
   }
 }
 
+// Extension → MIME map for the timestamp upload.
+// WHY: the backend's POST /api/v1/timestamps returns an unhandled 500 when the
+// multipart file part's Content-Type is `application/octet-stream` (which is
+// what a browser/undici Blob defaults to when constructed without a `type`).
+// A timestamp is MIME-agnostic (it only hashes bytes), so this is a backend
+// bug — but the client-side mitigation is to send an accurate content-type
+// derived from the file name. Covers the file kinds real eser-tescil uploads
+// use (documents, images, archives). Unknown extensions fall back to
+// octet-stream (still hits the backend bug until it is fixed server-side).
+const EXT_TO_MIME: Record<string, string> = {
+  pdf: 'application/pdf',
+  txt: 'text/plain', csv: 'text/csv', json: 'application/json', xml: 'application/xml',
+  rtf: 'application/rtf', md: 'text/markdown', html: 'text/html',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  odt: 'application/vnd.oasis.opendocument.text',
+  ods: 'application/vnd.oasis.opendocument.spreadsheet',
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+  webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp',
+  tif: 'image/tiff', tiff: 'image/tiff', heic: 'image/heic',
+  zip: 'application/zip', rar: 'application/vnd.rar', '7z': 'application/x-7z-compressed',
+  gz: 'application/gzip',
+  mp3: 'audio/mpeg', wav: 'audio/wav', mp4: 'video/mp4', mov: 'video/quicktime',
+};
+
+/** Best-effort MIME from a file name. Falls back to octet-stream if unknown. */
+export function mimeFromFileName(fileName: string): string {
+  const dot = fileName.lastIndexOf('.');
+  const ext = dot >= 0 ? fileName.slice(dot + 1).toLowerCase() : '';
+  return EXT_TO_MIME[ext] ?? 'application/octet-stream';
+}
+
 async function parseErrorBody(
   res: Response,
   status: number,
@@ -158,7 +194,9 @@ export function makeClient(o: ImzalaClientOpts): {
     const form = new FormData();
     form.append(
       'file',
-      new Blob([new Uint8Array(input.fileBuffer)]),
+      // Set an explicit content-type: a type-less Blob defaults to
+      // application/octet-stream, which the backend 500s on (see EXT_TO_MIME).
+      new Blob([new Uint8Array(input.fileBuffer)], { type: mimeFromFileName(input.fileName) }),
       input.fileName,
     );
     if (input.description !== undefined) {
