@@ -14,7 +14,8 @@
     "build": "tsup",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "e2e": "node scripts/e2e-preflight.mjs",
+    "prepublishOnly": "npm run build && npm run test && npm run e2e"
   },
   "engines": {
     "node": ">=20"
