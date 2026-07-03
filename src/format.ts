@@ -105,15 +105,22 @@ export function formatContractStatus(d: DemandStatusResult): string {
   lines.push('');
   lines.push('Taraflar:');
   for (const p of d.parties) {
-    const name = `${p.first_name} ${p.last_name}`.trim();
-    if (p.signed_at != null) {
-      lines.push(`- ${name} (${p.email}): imzaladı (${p.signed_at})`);
+    // Tolerant read across backend response shapes: prefer the pre-masked
+    // `name`/`email_masked` (KVKK "mask all" deployments), fall back to raw
+    // first_name/last_name/email (older deployments). Either may be absent.
+    const name = (p.name ?? `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim()) || 'İsimsiz taraf';
+    const contact = p.email_masked ?? p.email;
+    const who = contact ? `${name} (${contact})` : name;
+    if (p.rejected) {
+      lines.push(`- ${who}: reddetti${p.rejected_at ? ` (${p.rejected_at})` : ''}`);
+    } else if (p.signed_at != null) {
+      lines.push(`- ${who}: imzaladı (${p.signed_at})`);
     } else {
       // signing_url is a single-access bearer link (/imza/:party_id, no extra
       // auth). It is intentionally NOT rendered here: this output flows to a
       // third-party AI provider, and a leaked link would allow signing on the
       // party's behalf. Send reminders through the dashboard instead.
-      lines.push(`- ${name} (${p.email}): bekliyor`);
+      lines.push(`- ${who}: bekliyor`);
     }
   }
   lines.push('');

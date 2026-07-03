@@ -26,12 +26,20 @@ export interface TimestampResult {
 
 export interface DemandParty {
   party_id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  signed: boolean;      // NOTE: backend bug — counts all fields; do NOT trust. Use signed_at.
+  // Backend response shape varies by deployment: older/raw returns
+  // first_name/last_name/email; newer (KVKK "mask all") returns a pre-masked
+  // `name` ("Ahmet Y.") + `email_masked`. All optional — read tolerantly
+  // (see formatContractStatus). Never assume raw PII is present.
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  email_masked?: string;
+  signed?: boolean;     // backend heuristic — do NOT trust; use signed_at.
   signed_at: string | null;
-  signing_url: string;
+  rejected?: boolean;
+  rejected_at?: string | null;
+  signing_url?: string;
 }
 
 export interface DemandStatusResult {

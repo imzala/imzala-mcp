@@ -66,4 +66,40 @@ describe('formatContractStatus', () => {
     const completed = { ...DEMAND, status: 'COMPLETED', pdf_url: 'https://api-prd.imzala.org/sonuc/dem_1/pdf' };
     expect(formatContractStatus(completed as never)).toContain('https://api-prd.imzala.org/sonuc/dem_1/pdf');
   });
+
+  test('tolerant read: masked backend shape (name + email_masked, no raw PII)', () => {
+    // Newer backend (KVKK "mask all") drops first_name/last_name/email and sends
+    // pre-masked name + email_masked. The tool must render these, not "undefined".
+    const masked = {
+      ...DEMAND,
+      parties: [
+        { party_id: 'p1', name: 'Ahmet Y.', email_masked: 'a***@x.com', signed_at: '2026-07-01T12:00:00.000Z' },
+        { party_id: 'p2', name: 'Ayşe D.', email_masked: 'b***@x.com', signed_at: null },
+      ],
+    };
+    const out = formatContractStatus(masked as never);
+    expect(out).toContain('Ahmet Y. (a***@x.com)');
+    expect(out).toMatch(/Ahmet Y\..*imzaladı/s);
+    expect(out).toMatch(/Ayşe D\..*bekliyor/s);
+    expect(out).not.toContain('undefined');
+  });
+
+  test('shows rejected party as reddetti', () => {
+    const withReject = {
+      ...DEMAND,
+      parties: [
+        { party_id: 'p1', name: 'Ahmet Y.', email_masked: 'a***@x.com', signed_at: null, rejected: true, rejected_at: '2026-07-02T09:00:00.000Z' },
+      ],
+    };
+    const out = formatContractStatus(withReject as never);
+    expect(out).toMatch(/Ahmet Y\..*reddetti/s);
+    expect(out).toContain('2026-07-02T09:00:00.000Z');
+  });
+
+  test('no PII field missing → İsimsiz taraf, no crash', () => {
+    const bare = { ...DEMAND, parties: [{ party_id: 'p1', signed_at: null }] };
+    const out = formatContractStatus(bare as never);
+    expect(out).toContain('İsimsiz taraf');
+    expect(out).not.toContain('undefined');
+  });
 });
