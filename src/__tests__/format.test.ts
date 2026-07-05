@@ -53,10 +53,16 @@ describe('formatError — redaction', () => {
     expect(text.toLowerCase()).toContain('kimlik');
   });
 
-  test('403 INSUFFICIENT_SCOPE mentions timestamps and dashboard', () => {
+  test('403 INSUFFICIENT_SCOPE is scope-agnostic: mentions demands:write (not just timestamps) and dashboard', () => {
     const text = formatError(new ImzalaApiError(403, 'INSUFFICIENT_SCOPE', 'Forbidden'));
-    expect(text).toContain('timestamps');
+    expect(text).toContain('demands:write');
     expect(text.toLowerCase()).toContain('dashboard');
+  });
+
+  test('429 RATE_LIMITED mentions bekleme/zorla', () => {
+    const text = formatError(new ImzalaApiError(429, 'RATE_LIMITED', 'Too many requests'));
+    expect(text.toLowerCase()).toContain('zorla');
+    expect(text).toMatch(/5 dakika/);
   });
 
   test('402 / INSUFFICIENT_CREDITS mentions kredi', () => {

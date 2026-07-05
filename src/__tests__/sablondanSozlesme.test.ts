@@ -46,15 +46,21 @@ describe('createDemand', () => {
 });
 
 describe('formatCreateDemand', () => {
-  test('create-only: shows signing urls + not-sent notice + credit', () => {
+  test('create-only: shows party name + not-sent notice + credit, NEVER the signing_url bearer link', () => {
     const out = formatCreateDemand(RESULT as never, false);
     expect(out).toContain('Kira Sözleşmesi');
-    expect(out).toContain('https://e.imzala.org/imza/p1');
-    expect(out).toMatch(/gönderilmedi|iletmediniz|siz iletin/i);
+    expect(out).toContain('Ahmet Yılmaz');
+    expect(out).not.toContain('imza/p1');
+    expect(out).not.toContain('https://e.imzala.org/imza/p1');
+    expect(out).toMatch(/gönderilmedi/i);
     expect(out).toContain('1 kredi');
   });
   test('sent: shows dispatched count', () => {
     const out = formatCreateDemand({ ...RESULT, dispatched: 1 } as never, true);
     expect(out).toMatch(/gönderildi|1 davet/i);
+  });
+  test('does NOT leak the signing_url bearer link even when dispatched', () => {
+    const out = formatCreateDemand({ ...RESULT, dispatched: 1 } as never, true);
+    expect(out).not.toContain('imza/p1');
   });
 });

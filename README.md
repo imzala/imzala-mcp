@@ -95,6 +95,7 @@ Bu araclari kullandiginizda, sorguladiginiz veri, protokolun dogasi geregi kulla
 
 - `sozlesme_durumu` sozlesmenizdeki **karsi tarafin adini, soyadini, e-postasini ve imza tarihini** ciktida dondurur.
 - `imzali_pdf_indir` **tamamlanmis sozlesmenin tam icerigini** (varsa TC kimlik, adres, finansal veri dahil) dondurur.
+- `sablondan_sozlesme_olustur` **girdi yonunde** kisisel veri tasir: siz yazdiginiz karsi tarafin adini, soyadini, e-postasini ve/veya telefonunu, sozlesmeyi olusturmak icin kullandiginiz AI aracinin altyapisi uzerinden Imzala'ya gonderir.
 
 Bu veri, dashboard'da zaten gorebildiginiz ayni bilgidir; **İmzala.org bu aktarimi yapmaz**, hangi AI aracini kullanacaginiza siz karar verirsiniz. Sozlesmenizin karsi tarafina ait verileri bu sekilde islemeden once kendi veri sorumlusu yukumluluklerinizi degerlendirin.
 
@@ -157,7 +158,7 @@ Durum: Bekliyor
 
 Taraflar:
 - Ahmet Yilmaz (ahmet@ornek.com): imzaladı (2026-06-30T10:15:00Z)
-- Mehmet Demir (mehmet@ornek.com): bekliyor, imza linki: https://e.imzala.org/imza/abc123
+- Mehmet Demir (mehmet@ornek.com): bekliyor
 
 Sonuç sayfası: https://e.imzala.org/sonuc/xyz789
 ```
@@ -256,7 +257,7 @@ Bir şablondan yeni sözleşme oluşturur. **1 kredi harcar ve geri alınamaz.**
 | `parties` | `array` | Evet | Taraflar. Her öğe: `template_party_id` (sablon_detay ile öğrenilir) + `first_name` + `last_name` + (`email` veya `phone`) + isteğe bağlı `variables` |
 | `variables` | `object` | Hayir | Şablon geneli değişkenler (slug: değer) |
 | `gonder` | `boolean` | Hayir | `true` verilirse taraflara HEMEN gerçek SMS ve e-posta daveti gönderilir. Varsayılan `false`: sadece oluşturur, mesaj göndermez |
-| `idempotency_key` | `string` | Hayir | Ayni istegi tekrarlamamak icin benzersiz anahtar |
+| `idempotency_key` | `string` | Hayir | Sunucu tarafı destek eklendiğinde ayni istegin tekrarini onler (şu an ileriye donuk, henuz aktif koruma saglamaz) |
 
 **Cikti ornegi (`gonder: false`, varsayılan):**
 
@@ -265,10 +266,10 @@ Sözleşme oluşturuldu: Kira Sözleşmesi 2026 [dem_789]
 Durum: Bekliyor
 1 kredi harcandı.
 
-Taraflar ve imza linkleri:
-- Ahmet Yilmaz: https://e.imzala.org/imza/abc123
+Taraflar:
+- Ahmet Yilmaz
 
-Davet gönderilmedi. Yukarıdaki imza linklerini taraflara siz iletin, ya da hatirlatma_gonder aracıyla gönderin.
+Davet gönderilmedi. Taraflara imza daveti göndermek için gonder: true kullanın, hatirlatma_gonder aracıyla gönderin, ya da dashboard'daki sözleşme sayfasından davet edin.
 Sonuç sayfası: https://e.imzala.org/sonuc/dem_789
 ```
 
@@ -327,7 +328,7 @@ Yayinlamadan once gercek bir anahtar export edin:
 
 ```bash
 export IMZALA_E2E_API_KEY=imz_...                          # timestamps + templates + demands kapsamli
-export IMZALA_E2E_BASE_URL=https://test-api.imzala.org     # istege bagli — prod kredisi harcamamak icin test ortami
+export IMZALA_E2E_BASE_URL=https://test-api.imzala.org     # istege bagli (prod kredisi harcamamak icin test ortami)
 # istege bagli, sozlesme araclarini da test etmek icin:
 export IMZALA_E2E_DEMAND_ID=<demand-id>
 export IMZALA_E2E_COMPLETED_DEMAND_ID=<tamamlanmis-demand-id>

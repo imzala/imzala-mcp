@@ -31,7 +31,13 @@ export function formatError(e: unknown): string {
       return 'Kimlik doğrulama başarısız, IMZALA_API_KEY anahtarını kontrol edin.';
     }
     if (e.status === 403 && e.code === 'INSUFFICIENT_SCOPE') {
-      return "Bu API anahtarının 'timestamps' yetkisi yok. Dashboard'da anahtara timestamps kapsamı verin.";
+      // Scope-agnostic: this branch fires for ANY tool (read or write). Naming
+      // only "timestamps" here would mislead a write-tool caller (needs
+      // demands:write, not timestamps) into the wrong dashboard fix.
+      return "Bu API anahtarında bu işlem için gerekli kapsam yok. Yazma araçları (sözleşme oluşturma, hatırlatma) 'demands:write', zaman damgası 'timestamps', okuma araçları ilgili ':read' kapsamını ister. Dashboard'dan anahtara gerekli kapsamı verin ya da ayrı bir anahtar oluşturun.";
+    }
+    if (e.status === 429 && e.code === 'RATE_LIMITED') {
+      return 'Çok sık hatırlatma gönderildi. Aynı sözleşmeye 5 dakika içinde tekrar hatırlatma gönderilemez; beklemeyi aşmak için zorla parametresini kullanabilirsiniz.';
     }
     if (e.code === 'PARTY_LIMIT') {
       return 'Taraf sayısı planınızın sınırını aşıyor. Daha az tarafla deneyin veya planınızı yükseltin.';
@@ -193,7 +199,9 @@ export function formatTemplateDetail(t: TemplateDetailResult): string {
  *
  * SAFETY: always states whether invites were actually dispatched (`sent`)
  * so the caller (and any AI relaying this) cannot mistake "created" for
- * "sent". Always surfaces the credit-spend + irreversibility notice, and
+ * "sent". Never renders `signing_url` (single-access bearer link, no extra
+ * auth): same rationale as formatContractStatus. Always surfaces the
+ * credit-spend + irreversibility notice, and
  * warns against blind retries (this endpoint is not idempotent server-side).
  */
 export function formatCreateDemand(r: CreateDemandResult, sent: boolean): string {
@@ -202,16 +210,21 @@ export function formatCreateDemand(r: CreateDemandResult, sent: boolean): string
   lines.push(`Durum: ${r.status === 'PENDING' ? 'Bekliyor' : r.status}`);
   lines.push(`1 kredi harcandı.`);
   lines.push('');
-  lines.push('Taraflar ve imza linkleri:');
+  lines.push('Taraflar:');
+  // signing_url is a single-access bearer link (/imza/:party_id, no extra
+  // auth). It is intentionally NOT rendered here, mirroring the same
+  // rationale as the READ tool (formatContractStatus): this output flows to
+  // a third-party AI provider, and a leaked link would let someone sign on
+  // the party's behalf without ever proving who they are.
   for (const p of r.signing_urls) {
     const name = `${p.first_name} ${p.last_name}`.trim();
-    lines.push(`- ${name}: ${p.signing_url}`);
+    lines.push(`- ${name}`);
   }
   lines.push('');
   if (sent) {
     lines.push(`Davetler gönderildi (${r.dispatched} taraf için SMS ve e-posta iletildi).`);
   } else {
-    lines.push('Davet gönderilmedi. Yukarıdaki imza linklerini taraflara siz iletin, ya da hatirlatma_gonder aracıyla gönderin.');
+    lines.push('Davet gönderilmedi. Taraflara imza daveti göndermek için gonder: true kullanın, hatirlatma_gonder aracıyla gönderin, ya da dashboard\'daki sözleşme sayfasından davet edin.');
   }
   lines.push(`Sonuç sayfası: ${r.result_url}`);
   lines.push('');
