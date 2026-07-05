@@ -1,0 +1,68 @@
+name: Publish to npm
+
+# Bir sürüm etiketi (v1.2.0 gibi) push edilince otomatik npm publish yapar.
+# Kurulum:
+#   1. npmjs.com'da granular/automation token oluştur (read-write @imzala, bypass 2FA)
+#   2. GitHub repo > Settings > Secrets and variables > Actions > New repository secret:
+#        NPM_PUBLISH_TOKEN = npm_...
+#   3. Yayınla:
+#        npm version patch    # package.json'u bump + v1.2.1 tag oluşturur
+#        git push && git push --tags
+#      (ya da elle: git tag v1.2.1 && git push origin v1.2.1)
+#   -> Bu workflow tag'i yakalar, build+test eder, tag==package.json doğrular, publish eder.
+#      Elle OTP girmeye gerek YOK (token 2FA bypass eder).
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Tag == package.json version guard
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          echo "tag=$TAG package.json=$PKG"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::Etiket ($TAG) package.json sürümüyle ($PKG) uyuşmuyor. 'npm version' kullan."
+            exit 1
+          fi
+
+      - name: Publish
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+          # e2e gate (prepublishOnly) canlı backend + gerçek API anahtarı gerektirir.
+          # CI'da build+test yukarıda ayrı adımlarda koştu; e2e burada atlanır.
+          # Tam e2e gate'i CI'da çalıştırmak istersen:
+          #   - Repo secret ekle: IMZALA_E2E_API_KEY = imz_... (test ortamı, timestamps+read kapsamlı)
+          #   - Aşağıdaki IMZALA_E2E_SKIP satırını SİL ve şunları ekle:
+          #       IMZALA_E2E_API_KEY: ${{ secrets.IMZALA_E2E_API_KEY }}
+          #       IMZALA_E2E_BASE_URL: https://test-api.imzala.org
+          #       IMZALA_E2E_SKIP_TIMESTAMP: '1'
+          IMZALA_E2E_SKIP: '1'
