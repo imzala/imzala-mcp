@@ -95,6 +95,41 @@ export interface TemplateDetailResult {
   variables: TemplateVariable[];
 }
 
+export interface CreateDemandPartyMapping {
+  template_party_id: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  variables?: Record<string, string | number | boolean | null>;
+}
+export interface CreateDemandInput {
+  templateId: string;
+  partyMapping: CreateDemandPartyMapping[];
+  variables?: Record<string, string | number | boolean | null>;
+  /** false (default) = create-only, no messages. true = backend sends SMS+email immediately. */
+  send: boolean;
+  idempotencyKey?: string;
+}
+export interface CreateDemandSigningUrl {
+  party_id: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  signing_url: string;
+}
+export interface CreateDemandResult {
+  id: string;
+  title: string;
+  status: string;
+  template_id: string;
+  signing_urls: CreateDemandSigningUrl[];
+  result_url: string;
+  variables_applied: string[];
+  dispatched: number;
+}
+
 export class ImzalaApiError extends Error {
   constructor(
     public readonly status: number,
@@ -168,6 +203,7 @@ export function makeClient(o: ImzalaClientOpts): {
   listTemplates(page?: number, limit?: number): Promise<TemplateListResult>;
   getTemplate(id: string): Promise<TemplateDetailResult>;
   downloadPdf(url: string): Promise<Buffer>;
+  createDemand(input: CreateDemandInput): Promise<CreateDemandResult>;
 } {
   const { apiKey, baseUrl, fetch: fetchFn } = o;
 
@@ -271,5 +307,25 @@ export function makeClient(o: ImzalaClientOpts): {
     return Buffer.from(ab);
   }
 
-  return { getMe, createTimestamp, getDemand, listTemplates, getTemplate, downloadPdf };
+  async function createDemand(input: CreateDemandInput): Promise<CreateDemandResult> {
+    const body: Record<string, unknown> = {
+      template_id: input.templateId,
+      party_mapping: input.partyMapping,
+    };
+    if (input.variables !== undefined) body.variables = input.variables;
+    // DEFAULT create-only: suppress the backend's send-immediately behavior.
+    // Only when the caller explicitly opts in (send:true) do we omit the flag
+    // so the API's default (send SMS+email to every party) takes effect.
+    if (!input.send) body.dispatch_notifications = false;
+
+    const headers: Record<string, string> = { 'X-API-Key': apiKey, 'Content-Type': 'application/json' };
+    if (input.idempotencyKey !== undefined) headers['Idempotency-Key'] = input.idempotencyKey;
+
+    const res = await fetchFn(`${baseUrl}/api/v1/demands`, { method: 'POST', headers, body: JSON.stringify(body) });
+    if (!res.ok) throw await parseErrorBody(res, res.status);
+    const parsed = await res.json() as { success: boolean; data: CreateDemandResult };
+    return parsed.data;
+  }
+
+  return { getMe, createTimestamp, getDemand, listTemplates, getTemplate, downloadPdf, createDemand };
 }

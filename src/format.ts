@@ -1,4 +1,4 @@
-import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult } from './client.js';
+import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult, CreateDemandResult } from './client.js';
 import { ImzalaApiError } from './client.js';
 
 /**
@@ -180,5 +180,37 @@ export function formatTemplateDetail(t: TemplateDetailResult): string {
       lines.push(`- ${v.slug} (${v.label}), tip: ${v.item_type}${req}${def}`);
     }
   }
+  return lines.join('\n');
+}
+
+/**
+ * Formats a CreateDemandResult (from sablondan_sozlesme_olustur) into a
+ * human-readable Turkish summary.
+ *
+ * SAFETY: always states whether invites were actually dispatched (`sent`)
+ * so the caller (and any AI relaying this) cannot mistake "created" for
+ * "sent". Always surfaces the credit-spend + irreversibility notice, and
+ * warns against blind retries (this endpoint is not idempotent server-side).
+ */
+export function formatCreateDemand(r: CreateDemandResult, sent: boolean): string {
+  const lines: string[] = [];
+  lines.push(`Sözleşme oluşturuldu: ${r.title} [${r.id}]`);
+  lines.push(`Durum: ${r.status === 'PENDING' ? 'Bekliyor' : r.status}`);
+  lines.push(`1 kredi harcandı.`);
+  lines.push('');
+  lines.push('Taraflar ve imza linkleri:');
+  for (const p of r.signing_urls) {
+    const name = `${p.first_name} ${p.last_name}`.trim();
+    lines.push(`- ${name}: ${p.signing_url}`);
+  }
+  lines.push('');
+  if (sent) {
+    lines.push(`Davetler gönderildi (${r.dispatched} taraf için SMS ve e-posta iletildi).`);
+  } else {
+    lines.push('Davet gönderilmedi. Yukarıdaki imza linklerini taraflara siz iletin, ya da hatirlatma_gonder aracıyla gönderin.');
+  }
+  lines.push(`Sonuç sayfası: ${r.result_url}`);
+  lines.push('');
+  lines.push('Not: Bu işlem 1 kredi harcadı ve geri alınamaz. Aynı aracı tekrar çağırmak ikinci bir sözleşme oluşturur.');
   return lines.join('\n');
 }
