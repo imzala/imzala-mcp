@@ -130,6 +130,27 @@ export interface CreateDemandResult {
   dispatched: number;
 }
 
+export interface ReminderPartyDetail {
+  party_id: string;
+  first_name: string;
+  last_name: string;
+  sms?: { status: 'sent' | 'failed' | 'skipped'; reason?: string };
+  email?: { status: 'sent' | 'failed' | 'skipped'; reason?: string };
+}
+export interface ReminderResult {
+  demand_id: string;
+  demand_status: string;
+  channels_requested: string[];
+  reminders_sent: number;
+  reminders_skipped: number;
+  details: ReminderPartyDetail[];
+}
+export interface SendReminderInput {
+  demandId: string;
+  channels?: ('sms' | 'email')[];
+  force?: boolean;
+}
+
 export class ImzalaApiError extends Error {
   constructor(
     public readonly status: number,
@@ -204,6 +225,7 @@ export function makeClient(o: ImzalaClientOpts): {
   getTemplate(id: string): Promise<TemplateDetailResult>;
   downloadPdf(url: string): Promise<Buffer>;
   createDemand(input: CreateDemandInput): Promise<CreateDemandResult>;
+  sendReminder(input: SendReminderInput): Promise<ReminderResult>;
 } {
   const { apiKey, baseUrl, fetch: fetchFn } = o;
 
@@ -327,5 +349,28 @@ export function makeClient(o: ImzalaClientOpts): {
     return parsed.data;
   }
 
-  return { getMe, createTimestamp, getDemand, listTemplates, getTemplate, downloadPdf, createDemand };
+  async function sendReminder(input: SendReminderInput): Promise<ReminderResult> {
+    const body: Record<string, unknown> = {};
+    if (input.channels !== undefined) body.channels = input.channels;
+    if (input.force !== undefined) body.force = input.force;
+    const res = await fetchFn(`${baseUrl}/api/v1/demands/${encodeURIComponent(input.demandId)}/reminders`, {
+      method: 'POST',
+      headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      // Reminders use a NESTED error envelope: { error: { code, message, retry_after_seconds } }
+      let code: string | undefined; let message = `HTTP ${res.status}`;
+      try {
+        const b = await res.json() as { error?: { code?: string; message?: string } | string; code?: string };
+        if (b.error && typeof b.error === 'object') { code = b.error.code; message = b.error.message ?? message; }
+        else { code = b.code; message = (typeof b.error === 'string' ? b.error : message); }
+      } catch { /* keep defaults */ }
+      throw new ImzalaApiError(res.status, code, message);
+    }
+    const parsed = await res.json() as { success: boolean; data: ReminderResult };
+    return parsed.data;
+  }
+
+  return { getMe, createTimestamp, getDemand, listTemplates, getTemplate, downloadPdf, createDemand, sendReminder };
 }

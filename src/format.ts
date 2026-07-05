@@ -1,4 +1,4 @@
-import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult, CreateDemandResult } from './client.js';
+import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult, CreateDemandResult, ReminderResult } from './client.js';
 import { ImzalaApiError } from './client.js';
 
 /**
@@ -216,5 +216,26 @@ export function formatCreateDemand(r: CreateDemandResult, sent: boolean): string
   lines.push(`Sonuç sayfası: ${r.result_url}`);
   lines.push('');
   lines.push('Not: Bu işlem 1 kredi harcadı ve geri alınamaz. Aynı aracı tekrar çağırmak ikinci bir sözleşme oluşturur.');
+  return lines.join('\n');
+}
+
+/**
+ * Formats a ReminderResult (from hatirlatma_gonder) into a human-readable
+ * Turkish summary: how many reminders were sent vs. skipped, and per-party
+ * SMS/e-mail delivery detail (including the skip reason, e.g. anti-spam
+ * window or per-party cap).
+ */
+export function formatReminder(r: ReminderResult): string {
+  const lines: string[] = [];
+  lines.push(`Hatırlatma sonucu (sözleşme ${r.demand_id}):`);
+  lines.push(`${r.reminders_sent} taraf için hatırlatma gönderildi, ${r.reminders_skipped} taraf için gönderilmedi.`);
+  lines.push('');
+  for (const d of r.details) {
+    const name = `${d.first_name} ${d.last_name}`.trim();
+    const parts: string[] = [];
+    if (d.sms) parts.push(`SMS: ${d.sms.status}${d.sms.reason ? ` (${d.sms.reason})` : ''}`);
+    if (d.email) parts.push(`E-posta: ${d.email.status}${d.email.reason ? ` (${d.email.reason})` : ''}`);
+    lines.push(`- ${name}: ${parts.join(', ')}`);
+  }
   return lines.join('\n');
 }

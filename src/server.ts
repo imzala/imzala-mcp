@@ -7,6 +7,7 @@ import { registerSablonlarim } from './tools/sablonlarim.js';
 import { registerSablonDetay } from './tools/sablonDetay.js';
 import { registerImzaliPdfIndir } from './tools/imzaliPdfIndir.js';
 import { registerSablondanSozlesme } from './tools/sablondanSozlesme.js';
+import { registerHatirlatmaGonder } from './tools/hatirlatmaGonder.js';
 
 export interface CreateServerOpts {
   /** Called on every tool invocation to obtain the current auth context. Must be cheap (reads env / header). */
@@ -61,6 +62,7 @@ export function createServer(opts: CreateServerOpts): McpServer {
   registerSablonDetay(server, resolveClient);
   registerImzaliPdfIndir(server, resolveClient);
   registerSablondanSozlesme(server, resolveClient);
+  registerHatirlatmaGonder(server, resolveClient);
 
   return server;
 }
