@@ -33,8 +33,12 @@ export function formatError(e: unknown): string {
     if (e.status === 403 && e.code === 'INSUFFICIENT_SCOPE') {
       return "Bu API anahtarının 'timestamps' yetkisi yok. Dashboard'da anahtara timestamps kapsamı verin.";
     }
+    if (e.code === 'PARTY_LIMIT') {
+      return 'Taraf sayısı planınızın sınırını aşıyor. Daha az tarafla deneyin veya planınızı yükseltin.';
+    }
     if (e.status === 402 || e.code === 'INSUFFICIENT_CREDITS') {
-      return 'Yetersiz kredi. Eser tescil için yeterli krediniz yok.';
+      // Generic across all credit-spending tools (eser_tescil, sablondan_sozlesme_olustur).
+      return 'Yetersiz kredi. Bu işlem için yeterli krediniz yok.';
     }
     if (e.status === 503 || e.code === 'TSA_UNAVAILABLE') {
       return 'Zaman damgası servisi şu an kullanılamıyor, lütfen tekrar deneyin.';
