@@ -26,6 +26,18 @@
  *   IMZALA_E2E_DEMAND_ID            — a demand id → also tests sozlesme_durumu.
  *   IMZALA_E2E_COMPLETED_DEMAND_ID  — a COMPLETED demand id → also tests
  *                                     imzali_pdf_indir.
+ *   IMZALA_E2E_TEST_WRITE=1         — opt-in to exercise the 2 WRITE tools.
+ *                                     Off by default: write tools spend credits
+ *                                     and/or send real SMS/email, so they must
+ *                                     never run in a routine prepublish gate.
+ *                                     Even with this set, `hatirlatma_gonder`
+ *                                     is NEVER invoked (it sends real messages
+ *                                     with no create-only mode) — only its
+ *                                     presence in tools/list is checked.
+ *   IMZALA_E2E_TEMPLATE_ID          — template id for the opt-in
+ *                                     sablondan_sozlesme_olustur call (requires
+ *                                     IMZALA_E2E_TEST_WRITE=1 + IMZALA_E2E_PARTY_ID).
+ *   IMZALA_E2E_PARTY_ID             — template_party_id for the same call.
  *   IMZALA_E2E_SKIP=1               — escape hatch: skip the whole gate (loudly
  *                                     logged). Use only in a real emergency.
  */
@@ -86,10 +98,19 @@ async function main() {
 
   try {
     // --- tools/list ---
-    const EXPECTED = ['eser_tescil', 'imzali_pdf_indir', 'sablon_detay', 'sablonlarim', 'sozlesme_durumu', 'whoami'];
+    const EXPECTED = [
+      'eser_tescil',
+      'hatirlatma_gonder',
+      'imzali_pdf_indir',
+      'sablon_detay',
+      'sablondan_sozlesme_olustur',
+      'sablonlarim',
+      'sozlesme_durumu',
+      'whoami',
+    ];
     const listed = (await client.listTools()).tools.map((t) => t.name).sort();
     if (EXPECTED.some((t) => !listed.includes(t))) fail(`tools/list missing tools. got: ${listed.join(',')}`);
-    ok(`tools/list — 6 tools present (${listed.join(', ')})`);
+    ok(`tools/list — 8 tools present (${listed.join(', ')})`);
 
     // --- whoami ---
     const who = await client.callTool({ name: 'whoami', arguments: {} });
@@ -146,6 +167,43 @@ async function main() {
       ok('imzali_pdf_indir — signed PDF downloaded');
     } else {
       info('imzali_pdf_indir — skipped (set IMZALA_E2E_COMPLETED_DEMAND_ID to test)');
+    }
+
+    // --- write tools (sablondan_sozlesme_olustur, hatirlatma_gonder) ---
+    // OPT-IN ONLY: these tools spend credits and/or send real SMS/email, so
+    // they must never run in the default (routine prepublish) gate run.
+    if (process.env.IMZALA_E2E_TEST_WRITE !== '1') {
+      info('write tools (sablondan_sozlesme_olustur, hatirlatma_gonder) — SKIPPED by default (set IMZALA_E2E_TEST_WRITE=1 to opt in); presence already verified via tools/list');
+    } else {
+      const writeTemplateId = process.env.IMZALA_E2E_TEMPLATE_ID;
+      const writePartyId = process.env.IMZALA_E2E_PARTY_ID;
+      if (writeTemplateId && writePartyId) {
+        const created = await client.callTool({
+          name: 'sablondan_sozlesme_olustur',
+          arguments: {
+            template_id: writeTemplateId,
+            parties: [
+              {
+                template_party_id: writePartyId,
+                first_name: 'E2E',
+                last_name: 'Preflight',
+                email: 'e2e-preflight@imzala-mcp.invalid',
+              },
+            ],
+            gonder: false,
+          },
+        });
+        if (isErr(created) || !/Sözleşme oluşturuldu/.test(textOf(created))) {
+          fail(`sablondan_sozlesme_olustur failed: ${textOf(created).slice(0, 200)}`);
+        }
+        ok('sablondan_sozlesme_olustur — demand created (create-only, no messages sent, 1 credit spent)');
+      } else {
+        warn('sablondan_sozlesme_olustur — skipped (IMZALA_E2E_TEST_WRITE=1 but IMZALA_E2E_TEMPLATE_ID / IMZALA_E2E_PARTY_ID not set)');
+      }
+      // hatirlatma_gonder sends REAL SMS/email with no create-only mode — this
+      // gate must NEVER invoke it, even under IMZALA_E2E_TEST_WRITE=1. Its
+      // presence in tools/list is already asserted above.
+      info('hatirlatma_gonder — NOT invoked by this gate (always sends real SMS/email); presence verified via tools/list only');
     }
 
     console.log(`${GREEN}✔ MCP e2e gate passed — safe to publish.${RESET}\n`);

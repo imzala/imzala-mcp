@@ -1,6 +1,6 @@
 {
   "name": "@imzala/mcp-server",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "İmzala MCP server: sözleşme durumu, şablonlar, imzalı PDF indirme ve eser tescil (RFC3161 zaman damgası), API anahtarıyla",
   "type": "module",
   "bin": {

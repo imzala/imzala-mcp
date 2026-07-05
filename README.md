@@ -1,6 +1,8 @@
 # @imzala/mcp-server
 
-**İmzala MCP server:** AI asistanınızın (Claude, Cursor vb.) İmzala hesabınıza erişmesini sağlar. API anahtarıyla kimlik doğrulaması yapılır; altı araç sunar: `whoami` (hesap ve kredi bilgisi), `eser_tescil` (RFC 3161 zaman damgası), `sozlesme_durumu` (sözleşme durumu ve imza takibi), `sablonlarim` (şablon listesi), `sablon_detay` (şablon detayı ve değişken kataloğu), `imzali_pdf_indir` (tamamlanmış sözleşmenin imzalı PDF'ini indirme).
+**İmzala MCP server:** AI asistanınızın (Claude, Cursor vb.) İmzala hesabınıza erişmesini sağlar. API anahtarıyla kimlik doğrulaması yapılır; sekiz araç sunar: `whoami` (hesap ve kredi bilgisi), `eser_tescil` (RFC 3161 zaman damgası), `sozlesme_durumu` (sözleşme durumu ve imza takibi), `sablonlarim` (şablon listesi), `sablon_detay` (şablon detayı ve değişken kataloğu), `imzali_pdf_indir` (tamamlanmış sözleşmenin imzalı PDF'ini indirme), `sablondan_sozlesme_olustur` (şablondan yeni sözleşme oluşturma, kredi harcar), `hatirlatma_gonder` (imzalamamış taraflara gerçek SMS/e-posta hatırlatması gönderme).
+
+> **Önemli:** `sablondan_sozlesme_olustur` ve `hatirlatma_gonder` **yazma (write)** araçlarıdır: biri sözleşme oluşturur ve kredi harcar, diğeri gerçek SMS/e-posta gönderir. İkisi de API anahtarınızda `demands:write` kapsamı ister; **salt-okunur** bir anahtarla (`demands:read` / `templates:read`) çalışmazlar. Bkz. "API Anahtarı Nasıl Alınır" ve ilgili araç bölümleri.
 
 > **Not:** Bu paket varsayılan olarak İmzala üretim ortamına (`https://api-prd.imzala.org`) bağlanır. Farklı bir uç nokta için `IMZALA_API_BASE_URL` değişkenini ayarlayın.
 
@@ -72,7 +74,8 @@
 1. [app.imzala.org](https://app.imzala.org) adresinden hesabiniza giris yapin.
 2. Saga ustten **Hesap ayarlari** bölümüne gidin.
 3. **API Anahtarlari** sekmesini acin ve **Yeni Anahtar** butonuna tiklayin.
-4. Kapsam seciminde, hangi araclari kullanacaginiza gore en dar (minimal) kombinasyonu isaretleyin. Bu MCP sunucusundaki araclarin HEPSI salt-okunurdur (hicbiri sozlesme olusturmaz ya da degistirmez), bu yuzden **salt-okunur kapsam** vermeniz onerilir: `eser_tescil` ve `whoami` icin `timestamps`; `sozlesme_durumu` ve `imzali_pdf_indir` icin `demands:read`; `sablonlarim` ve `sablon_detay` icin `templates:read`. Dashboard'da **"Yapay zeka asistani icin salt-okunur (onerilen)"** hazir secenegi tam bu kombinasyonu (`timestamps` + `demands:read` + `templates:read`) tek tikla secer. Yazma yetkisi (`demands:write`) veren bir anahtar VERMEYIN, bu araclarin hicbiri buna ihtiyac duymaz. (Eski, ayrimsiz `demands`/`templates` kapsamli anahtarlar da calisir ama yazma yetkisi de icerdiginden onerilmez.)
+4. Kapsam seciminde, hangi araclari kullanacaginiza gore en dar (minimal) kombinasyonu isaretleyin. Bu MCP sunucusundaki alti aracin (`whoami`, `eser_tescil`, `sozlesme_durumu`, `sablonlarim`, `sablon_detay`, `imzali_pdf_indir`) hicbiri sozlesme olusturmaz ya da degistirmez, bu yuzden **salt-okunur kapsam** vermeniz onerilir: `eser_tescil` ve `whoami` icin `timestamps`; `sozlesme_durumu` ve `imzali_pdf_indir` icin `demands:read`; `sablonlarim` ve `sablon_detay` icin `templates:read`. Dashboard'da **"Yapay zeka asistani icin salt-okunur (onerilen)"** hazir secenegi tam bu kombinasyonu (`timestamps` + `demands:read` + `templates:read`) tek tikla secer.
+   Yazma yetkisi (`demands:write`) veren bir anahtar **sadece** `sablondan_sozlesme_olustur` (sözleşme oluşturma) veya `hatirlatma_gonder` (gerçek SMS/e-posta hatırlatması) araçlarını kullanmak istiyorsaniz gereklidir; bu iki araç `demands:write` kapsamı olmadan çalışmaz. Bu yazma araçlarını kullanmayacaksanız `demands:write` VERMEYIN. Kullanmak isterseniz **ayrı bir anahtar** oluşturup yalnızca ona `demands:write` verin; salt-okunur ana anahtarınızı genişletmeyin. (Eski, ayrimsiz `demands`/`templates` kapsamli anahtarlar da calisir ama yazma yetkisi de icerdiginden onerilmez.)
 5. Olusan anahtari kopyalayin ve yukaridaki yapilandirma dosyasina girin.
 
 ---
@@ -82,7 +85,8 @@
 Bu API anahtari hesabiniza erisim saglar ve her zaman damgasi isleminde **kredi harcar.** Asagidaki kurallara uyun:
 
 - Anahtari bir parola gibi sayin; e-posta, Slack veya kaynak kod deposuna yapistirmayin.
-- Anahtari eklediginiz AI aracinin saglayicisi (Anthropic, Cursor vb.) yapılandirma dosyanizi okuyabilir. Bu riski kabul edilebilir kilmak icin **salt-okunur** bir anahtar kullanin (`timestamps` + `demands:read` + `templates:read`, dashboard'daki "Yapay zeka asistani icin salt-okunur" secenegi); yazma yetkisi (`demands:write`) veren ya da tam yetkili anahtar **vermeyin**. Boylece anahtar sizsa bile ucuncu taraf sozlesmelerinizi degistiremez, yalnizca okuyabilir.
+- Anahtari eklediginiz AI aracinin saglayicisi (Anthropic, Cursor vb.) yapılandirma dosyanizi okuyabilir. Bu riski kabul edilebilir kilmak icin **salt-okunur** bir anahtar kullanin (`timestamps` + `demands:read` + `templates:read`, dashboard'daki "Yapay zeka asistani icin salt-okunur" secenegi); yazma yetkisi (`demands:write`) veren ya da tam yetkili anahtar **vermeyin**. Boylece anahtar sizsa bile ucuncu taraf sozlesmelerinizi degistiremez, yeni sozlesme olusturamaz, gercek SMS/e-posta gonderemez; yalnizca okuyabilir.
+- `sablondan_sozlesme_olustur` ve `hatirlatma_gonder` kasitli olarak `demands:write` kapsami GEREKTIRIR: salt-okunur bir anahtarla (yukaridaki onerilen kombinasyon) bu iki arac calismaz, sadece hata doner. Bu bir guvenlik onlemidir: bir AI asistanina salt-okunur anahtar veren kullanici, o asistanin adiniza sozlesme olusturmasini ya da karsi taraflara gercek mesaj gondermesini istemiyor demektir. Bu iki araci kullanmak isterseniz, ayri bir `demands:write` kapsamli anahtar olusturun ve sadece o kullanim icin verin.
 - Anahtarinizin gizlendigini dusunuyorsaniz dashboard'daki **API Anahtarlari** sayfasindan hemen iptal edin ve yeni bir anahtar olusturun.
 
 ### Veri akisi (onemli)
@@ -237,6 +241,67 @@ JVBERi0xLjcKJ...
 ---
 
 > **Not:** Bu MCP sunucusundaki dört sözleşme/şablon aracı (`sozlesme_durumu`, `imzali_pdf_indir`, `sablonlarim`, `sablon_detay`) yalnızca **okuma** kapsamı gerektirir: `sozlesme_durumu` + `imzali_pdf_indir` için `demands:read`, `sablonlarim` + `sablon_detay` için `templates:read`. Bu salt-okunur kapsamlar sözleşme oluşturma veya değiştirme yetkisi VERMEZ, dolayısıyla bir yapay zeka asistanına vermek için en güvenli seçimdir. Dashboard'daki "Yapay zeka asistanı için salt-okunur (önerilen)" hazır seçeneği bu kombinasyonu tek tıkla seçer.
+
+---
+
+### `sablondan_sozlesme_olustur`
+
+Bir şablondan yeni sözleşme oluşturur. **1 kredi harcar ve geri alınamaz.** Varsayılan olarak (`gonder` verilmez veya `false`) yalnızca sözleşmeyi oluşturur, taraflara herhangi bir mesaj GÖNDERMEZ; imza linklerini kendiniz iletirsiniz. `gonder: true` verirseniz taraflara hemen gerçek SMS ve e-posta daveti gönderilir.
+
+**Girdiler:**
+
+| Alan | Tip | Zorunlu | Aciklama |
+|------|-----|---------|----------|
+| `template_id` | `string` | Evet | Sözleşmenin oluşturulacağı şablonun kimliği |
+| `parties` | `array` | Evet | Taraflar. Her öğe: `template_party_id` (sablon_detay ile öğrenilir) + `first_name` + `last_name` + (`email` veya `phone`) + isteğe bağlı `variables` |
+| `variables` | `object` | Hayir | Şablon geneli değişkenler (slug: değer) |
+| `gonder` | `boolean` | Hayir | `true` verilirse taraflara HEMEN gerçek SMS ve e-posta daveti gönderilir. Varsayılan `false`: sadece oluşturur, mesaj göndermez |
+| `idempotency_key` | `string` | Hayir | Ayni istegi tekrarlamamak icin benzersiz anahtar |
+
+**Cikti ornegi (`gonder: false`, varsayılan):**
+
+```
+Sözleşme oluşturuldu: Kira Sözleşmesi 2026 [dem_789]
+Durum: Bekliyor
+1 kredi harcandı.
+
+Taraflar ve imza linkleri:
+- Ahmet Yilmaz: https://e.imzala.org/imza/abc123
+
+Davet gönderilmedi. Yukarıdaki imza linklerini taraflara siz iletin, ya da hatirlatma_gonder aracıyla gönderin.
+Sonuç sayfası: https://e.imzala.org/sonuc/dem_789
+```
+
+> ⚠️ Bu araç **`demands:write`** kapsamı gerektirir. Salt-okunur bir anahtarla (`demands:read` / `templates:read`) çalışmaz, hata döner. Sablon_detay ile hangi `template_party_id` ve değişkenlerin gerektiğini önce öğrenin. Başarısızlıkta bu aracı körü körüne tekrar çağırmayın: her çağrı ayrı bir sözleşme ve ayrı bir kredi harcaması oluşturur (sunucu tarafında idempotent değildir).
+
+---
+
+### `hatirlatma_gonder`
+
+Bir sözleşmede henüz imzalamamış taraflara **gerçek SMS ve e-posta hatırlatması** gönderir.
+
+**Girdiler:**
+
+| Alan | Tip | Zorunlu | Aciklama |
+|------|-----|---------|----------|
+| `demand_id` | `string` | Evet | Hatırlatma gönderilecek sözleşmenin kimliği |
+| `kanallar` | `array` | Hayir | Hangi kanallardan gönderilsin: `sms`, `email` (varsayılan: ikisi de) |
+| `zorla` | `boolean` | Hayir | `true` verilirse 5 dakikalık bekleme süresi aşılır (kişi başı 3 SMS + 3 e-posta sınırı yine geçerlidir) |
+
+**Cikti ornegi:**
+
+```
+Hatırlatma sonucu (sözleşme dem_789):
+1 taraf için hatırlatma gönderildi, 0 taraf için gönderilmedi.
+
+- Mehmet Demir: SMS: sent, E-posta: sent
+```
+
+> ⚠️ Bu araç **`demands:write`** kapsamı gerektirir ve **gerçek mesaj gönderir**; geri alınamaz, dikkatli kullanın. Anti-spam koruması vardır: aynı sözleşmeye 5 dakika içinde tekrar hatırlatma engellenir (`zorla: true` ile aşılabilir), kişi başına en fazla 3 SMS ve 3 e-posta gönderilir.
+
+---
+
+> **⚠️ Yazma (write) araçları, kapsam kuralı:** `sablondan_sozlesme_olustur` ve `hatirlatma_gonder` **`demands:write`** kapsamı gerektirir. Salt-okunur bir anahtar (`demands:read` / `templates:read`, dashboard'daki "Yapay zeka asistanı için salt-okunur" seçeneği) bu iki aracı KULLANAMAZ; bu kasıtlıdır. Yapay zeka asistanına salt-okunur anahtar veren bir kullanıcı, o asistanın kendi adına sözleşme oluşturmasını veya karşı taraflara gerçek mesaj göndermesini istemiyor demektir. Bu iki aracı kullanmak isteyenler, dashboard'dan `demands:write` kapsamlı **ayrı bir anahtar** oluşturmalıdır.
 
 ---
 

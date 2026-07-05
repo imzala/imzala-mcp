@@ -64,6 +64,12 @@ describe('formatError — redaction', () => {
     expect(text.toLowerCase()).toContain('kredi');
   });
 
+  test('402 / PARTY_LIMIT returns the party-limit message, NOT the generic credit message (branch ORDERING guard: PARTY_LIMIT must be checked before the generic status===402 case)', () => {
+    const text = formatError(new ImzalaApiError(402, 'PARTY_LIMIT', 'Too many parties'));
+    expect(text).toContain('Taraf sayısı planınızın sınırını aşıyor');
+    expect(text.toLowerCase()).not.toContain('yetersiz kredi');
+  });
+
   test('503 / TSA_UNAVAILABLE says service unavailable', () => {
     const text = formatError(new ImzalaApiError(503, 'TSA_UNAVAILABLE', 'Down'));
     expect(text.toLowerCase()).toContain('kullanılamıyor');
