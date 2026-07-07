@@ -151,6 +151,109 @@ export interface SendReminderInput {
   force?: boolean;
 }
 
+// ── Sözleşme listesi (GET /api/v1/demands) — counts-only, party PII yok ──
+export interface DemandListItem {
+  id: string;
+  title: string | null;
+  status: 'PENDING' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED';
+  created_at: string;
+  completed_at: string | null;
+  parties_total: number;
+  parties_signed: number;
+  pdf_url: string | null;
+}
+export interface DemandListResult {
+  demands: DemandListItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+export interface ListDemandsInput {
+  /** API status filtresi (PENDING/COMPLETED/CANCELLED/EXPIRED). Tool Türkçe `durum`'u buraya map eder. */
+  status?: string;
+  q?: string;
+  page?: number;
+  limit?: number;
+}
+
+// ── Sözleşme iptal (POST /api/v1/demands/:id/cancel) ──
+export interface CancelDemandResult {
+  id: string;
+  title: string | null;
+  status: string;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  /** Yalnızca toplu (bulk) sözleşme iptalinde döner: iade edilen rezerve kredi. */
+  refunded?: number;
+}
+
+// ── Kişi (Contact) — liste + oluştur. 🔴 KVKK: TC (government_id) YOK. ──
+export interface Contact {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  job_title: string | null;
+  company_id: string | null;
+  company: { id: string; name: string | null } | null;
+  notes: string | null;
+  address_country: string | null;
+  address_city: string | null;
+  address_district: string | null;
+  address_line: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface ContactListResult {
+  contacts: Contact[];
+  total: number;
+  page: number;
+  limit: number;
+}
+export interface ListContactsInput {
+  q?: string;
+  page?: number;
+  limit?: number;
+}
+export interface CreateContactInput {
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  job_title?: string;
+  address_country?: string;
+  address_city?: string;
+  address_district?: string;
+  address_line?: string;
+  // 🔴 government_id (TC) BİLEREK YOK — KVKK m.4/m.9: en hassas tanımlayıcı bu
+  // kanaldan (yurt dışı AI sağlayıcısı) akmasın. Backend de kabul etmez.
+}
+
+// ── Zaman damgası listesi (GET /api/v1/timestamps) ──
+export interface TimestampListItem {
+  id: string;
+  original_file_name: string;
+  original_file_size: number | null;
+  timestamp_date: string;
+  status: string;
+  description: string | null;
+  created_at: string;
+  /** S3 key / internal / Faz D şifreli — tarayıcıdan indirilebilir link DEĞİL. */
+  timestamp_file_url: string;
+}
+export interface TimestampListResult {
+  timestamps: TimestampListItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+export interface ListTimestampsInput {
+  page?: number;
+  limit?: number;
+}
+
 export class ImzalaApiError extends Error {
   constructor(
     public readonly status: number,
@@ -226,6 +329,11 @@ export function makeClient(o: ImzalaClientOpts): {
   downloadPdf(url: string): Promise<Buffer>;
   createDemand(input: CreateDemandInput): Promise<CreateDemandResult>;
   sendReminder(input: SendReminderInput): Promise<ReminderResult>;
+  listDemands(input?: ListDemandsInput): Promise<DemandListResult>;
+  cancelDemand(demandId: string, reason?: string): Promise<CancelDemandResult>;
+  listContacts(input?: ListContactsInput): Promise<ContactListResult>;
+  createContact(input: CreateContactInput): Promise<Contact>;
+  listTimestamps(input?: ListTimestampsInput): Promise<TimestampListResult>;
 } {
   const { apiKey, baseUrl, fetch: fetchFn } = o;
 
@@ -372,5 +480,86 @@ export function makeClient(o: ImzalaClientOpts): {
     return parsed.data;
   }
 
-  return { getMe, createTimestamp, getDemand, listTemplates, getTemplate, downloadPdf, createDemand, sendReminder };
+  async function listDemands(input: ListDemandsInput = {}): Promise<DemandListResult> {
+    const params = new URLSearchParams();
+    params.set('page', String(input.page ?? 1));
+    params.set('limit', String(input.limit ?? 20));
+    if (input.q) params.set('q', input.q);
+    if (input.status) params.set('status', input.status);
+    const res = await fetchFn(`${baseUrl}/api/v1/demands?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'X-API-Key': apiKey },
+    });
+    if (!res.ok) throw await parseErrorBody(res, res.status);
+    const body = await res.json() as { success: boolean; data: DemandListResult };
+    return body.data;
+  }
+
+  async function cancelDemand(demandId: string, reason?: string): Promise<CancelDemandResult> {
+    const body: Record<string, unknown> = {};
+    if (reason !== undefined && reason !== '') body.reason = reason;
+    const res = await fetchFn(`${baseUrl}/api/v1/demands/${encodeURIComponent(demandId)}/cancel`, {
+      method: 'POST',
+      headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw await parseErrorBody(res, res.status);
+    const parsed = await res.json() as { success: boolean; data: CancelDemandResult };
+    return parsed.data;
+  }
+
+  async function listContacts(input: ListContactsInput = {}): Promise<ContactListResult> {
+    const params = new URLSearchParams();
+    params.set('page', String(input.page ?? 1));
+    params.set('limit', String(input.limit ?? 20));
+    if (input.q) params.set('q', input.q);
+    const res = await fetchFn(`${baseUrl}/api/v1/contacts?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'X-API-Key': apiKey },
+    });
+    if (!res.ok) throw await parseErrorBody(res, res.status);
+    const body = await res.json() as { success: boolean; data: ContactListResult };
+    return body.data;
+  }
+
+  async function createContact(input: CreateContactInput): Promise<Contact> {
+    // 🔴 Yalnızca allowlist alanları gönderilir — government_id (TC) HİÇ eklenmez.
+    const body: Record<string, unknown> = {
+      first_name: input.first_name,
+      last_name: input.last_name,
+    };
+    if (input.email !== undefined) body.email = input.email;
+    if (input.phone !== undefined) body.phone = input.phone;
+    if (input.job_title !== undefined) body.job_title = input.job_title;
+    if (input.address_country !== undefined) body.address_country = input.address_country;
+    if (input.address_city !== undefined) body.address_city = input.address_city;
+    if (input.address_district !== undefined) body.address_district = input.address_district;
+    if (input.address_line !== undefined) body.address_line = input.address_line;
+    const res = await fetchFn(`${baseUrl}/api/v1/contacts`, {
+      method: 'POST',
+      headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw await parseErrorBody(res, res.status);
+    const parsed = await res.json() as { success: boolean; data: Contact };
+    return parsed.data;
+  }
+
+  async function listTimestamps(input: ListTimestampsInput = {}): Promise<TimestampListResult> {
+    const params = new URLSearchParams();
+    params.set('page', String(input.page ?? 1));
+    params.set('limit', String(input.limit ?? 20));
+    const res = await fetchFn(`${baseUrl}/api/v1/timestamps?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'X-API-Key': apiKey },
+    });
+    if (!res.ok) throw await parseErrorBody(res, res.status);
+    const body = await res.json() as { success: boolean; data: TimestampListResult };
+    return body.data;
+  }
+
+  return {
+    getMe, createTimestamp, getDemand, listTemplates, getTemplate, downloadPdf, createDemand, sendReminder,
+    listDemands, cancelDemand, listContacts, createContact, listTimestamps,
+  };
 }

@@ -1,4 +1,4 @@
-import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult, CreateDemandResult, ReminderResult } from './client.js';
+import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult, CreateDemandResult, ReminderResult, DemandListResult, CancelDemandResult, ContactListResult, Contact, TimestampListResult } from './client.js';
 import { ImzalaApiError } from './client.js';
 
 /**
@@ -33,8 +33,10 @@ export function formatError(e: unknown): string {
     if (e.status === 403 && e.code === 'INSUFFICIENT_SCOPE') {
       // Scope-agnostic: this branch fires for ANY tool (read or write). Naming
       // only "timestamps" here would mislead a write-tool caller (needs
-      // demands:write, not timestamps) into the wrong dashboard fix.
-      return "Bu API anahtarında bu işlem için gerekli kapsam yok. Yazma araçları (sözleşme oluşturma, hatırlatma) 'demands:write', zaman damgası 'timestamps', okuma araçları ilgili ':read' kapsamını ister. Dashboard'dan anahtara gerekli kapsamı verin ya da ayrı bir anahtar oluşturun.";
+      // demands:write, not timestamps) into the wrong dashboard fix. Covers all
+      // v1.3.0 scopes: demands:read/write, contacts:read/write, templates:read,
+      // timestamps.
+      return "Bu API anahtarında bu işlem için gerekli kapsam yok. Okuma araçları ilgili ':read' kapsamını (ör. sözleşme listesi/durumu 'demands:read', kişiler 'contacts:read', şablonlar 'templates:read'), yazma araçları ':write' kapsamını (ör. sözleşme oluştur/iptal 'demands:write', kişi ekle 'contacts:write'), zaman damgası araçları 'timestamps' kapsamını ister. Dashboard'dan anahtara gerekli kapsamı verin ya da ayrı bir anahtar oluşturun.";
     }
     if (e.status === 429 && e.code === 'RATE_LIMITED') {
       return 'Çok sık hatırlatma gönderildi. Aynı sözleşmeye 5 dakika içinde tekrar hatırlatma gönderilemez; beklemeyi aşmak için zorla parametresini kullanabilirsiniz.';
@@ -54,6 +56,19 @@ export function formatError(e: unknown): string {
     }
     if (e.status === 422 && e.code === 'STAMP_INVALID') {
       return 'Zaman damgası üretilemedi.';
+    }
+    if (e.status === 409 && e.code === 'CONTACT_DUPLICATE') {
+      // kisi_ekle: same email/phone already in this workspace. Curated message
+      // (never echoes the raw backend string), but does not leak the duplicate id.
+      return 'Bu e-posta veya telefona sahip bir kişi bu çalışma alanında zaten var. Yeni kişi oluşturulmadı; mevcut kişiyi kisilerim aracıyla bulabilirsiniz.';
+    }
+    if (e.status === 409) {
+      // sozlesme_iptal conflict: the demand is not in a cancellable state
+      // (already COMPLETED or already CANCELLED). Curated, non-sensitive.
+      return 'Bu işlem sözleşmenin mevcut durumunda yapılamaz (tamamlanmış veya zaten iptal edilmiş bir sözleşme iptal edilemez). Önce sozlesme_durumu ile durumu doğrulayın.';
+    }
+    if (e.status === 404) {
+      return 'Kayıt bulunamadı. Kimliğin (id) doğru olduğundan ve bu API anahtarının çalışma alanına ait olduğundan emin olun.';
     }
     // Unknown ImzalaApiError: include only code or numeric status — never the raw message
     const identifier = e.code ?? String(e.status);
@@ -250,5 +265,129 @@ export function formatReminder(r: ReminderResult): string {
     if (d.email) parts.push(`E-posta: ${d.email.status}${d.email.reason ? ` (${d.email.reason})` : ''}`);
     lines.push(`- ${name}: ${parts.join(', ')}`);
   }
+  return lines.join('\n');
+}
+
+/**
+ * Formats a DemandListResult (from sozlesmelerim) into a human-readable Turkish
+ * contract list. Counts-only — the backend deliberately returns no party PII
+ * (no names/emails), so nothing sensitive flows to the AI provider. Per-item
+ * status is shown in Turkish; the imza count comes from parties_signed/total.
+ * No bearer link is ever rendered.
+ */
+export function formatDemandList(r: DemandListResult): string {
+  if (r.demands.length === 0) {
+    return 'Hiç sözleşme bulunamadı.';
+  }
+  const lines: string[] = [];
+  for (const d of r.demands) {
+    const title = d.title || 'Başlıksız sözleşme';
+    const status = STATUS_TR[d.status] ?? d.status;
+    const created = d.created_at ? `, oluşturma: ${d.created_at}` : '';
+    lines.push(`- ${title} [${d.id}]: ${status}, ${d.parties_signed}/${d.parties_total} taraf imzaladı${created}`);
+    if (d.status === 'COMPLETED' && d.pdf_url) {
+      lines.push(`  İmzalı PDF: ${d.pdf_url}`);
+    }
+  }
+  lines.push('');
+  lines.push(`Toplam: ${r.total} (sayfa ${r.page}, sayfa boyutu ${r.limit})`);
+  lines.push('');
+  lines.push('İpucu: Bir sözleşmenin taraf/imza ayrıntısı için sozlesme_durumu aracını kimlik (id) ile çağırın.');
+  return lines.join('\n');
+}
+
+/**
+ * Formats a CancelDemandResult (from sozlesme_iptal) into a human-readable
+ * Turkish summary. States plainly that the contract was cancelled (voided) and
+ * that this is a platform action, not a legal "fesih". Surfaces the credit
+ * refund only when the backend performed one (bulk contracts).
+ */
+export function formatCancelDemand(r: CancelDemandResult): string {
+  const lines: string[] = [];
+  const title = r.title || 'Sözleşme';
+  lines.push(`İptal edildi: ${title} [${r.id}]`);
+  lines.push(`Durum: ${STATUS_TR[r.status] ?? r.status}`);
+  if (r.cancelled_at) lines.push(`İptal zamanı: ${r.cancelled_at}`);
+  if (r.cancellation_reason) lines.push(`İptal sebebi: ${r.cancellation_reason}`);
+  if (typeof r.refunded === 'number' && r.refunded > 0) {
+    lines.push(`İade edilen kredi: ${r.refunded}`);
+  }
+  lines.push('');
+  lines.push('Bu, İmzala.org üzerindeki sözleşme talebinin iptalidir (platform işlemi); imzalanmış bir belgenin hukuki feshi değildir. İşlem geri alınamaz; bekleyen imza davetleri ve hatırlatmalar durdurulur.');
+  return lines.join('\n');
+}
+
+/**
+ * Formats a ContactListResult (from kisilerim) into a human-readable Turkish
+ * contact list. The backend allowlist never includes T.C. Kimlik No, so no
+ * such identifier is present to render (KVKK). Encryption/workspace columns
+ * are likewise absent from the response.
+ */
+export function formatContactList(r: ContactListResult): string {
+  if (r.contacts.length === 0) {
+    return 'Hiç kişi bulunamadı.';
+  }
+  const lines: string[] = [];
+  for (const c of r.contacts) {
+    lines.push(`- ${formatContactLine(c)}`);
+  }
+  lines.push('');
+  lines.push(`Toplam: ${r.total} (sayfa ${r.page}, sayfa boyutu ${r.limit})`);
+  return lines.join('\n');
+}
+
+/** Shared single-line contact renderer (list + create). No TC — not in the API allowlist. */
+function formatContactLine(c: Contact): string {
+  const name = `${c.first_name} ${c.last_name}`.trim() || 'İsimsiz kişi';
+  const bits: string[] = [];
+  if (c.email) bits.push(c.email);
+  if (c.phone) bits.push(c.phone);
+  if (c.job_title) bits.push(c.job_title);
+  if (c.company?.name) bits.push(c.company.name);
+  const suffix = bits.length ? `: ${bits.join(', ')}` : '';
+  return `${name} [${c.id}]${suffix}`;
+}
+
+/**
+ * Formats a freshly created Contact (from kisi_ekle) into a human-readable
+ * Turkish confirmation. Makes explicit that the system only RECORDED the
+ * contact (it did NOT verify the person's identity), so no "verified/doğrulanmış
+ * kişi" implication is ever conveyed.
+ */
+export function formatContactCreate(c: Contact): string {
+  const lines: string[] = [];
+  lines.push(`Kişi kaydedildi: ${formatContactLine(c)}`);
+  lines.push('');
+  lines.push('Not: Bu araç kişiyi rehbere yalnızca KAYDEDER; kimliğini DOĞRULAMAZ. Kayıt, kişinin beyan edilen bilgileridir, doğrulanmış kimlik teşkil etmez.');
+  return lines.join('\n');
+}
+
+const TIMESTAMP_STATUS_TR: Record<string, string> = {
+  ACTIVE: 'Aktif',
+  VERIFIED: 'Doğrulandı',
+  EXPIRED: 'Süresi doldu',
+  INVALID: 'Geçersiz',
+};
+
+/**
+ * Formats a TimestampListResult (from zaman_damgalarim) into a human-readable
+ * Turkish list of RFC 3161 timestamps. `timestamp_file_url` is an internal S3
+ * key (not a browser-downloadable link), so it is intentionally NOT rendered;
+ * the damga dosyası is retrieved from the dashboard.
+ */
+export function formatTimestampList(r: TimestampListResult): string {
+  if (r.timestamps.length === 0) {
+    return 'Hiç zaman damgası bulunamadı.';
+  }
+  const lines: string[] = [];
+  for (const t of r.timestamps) {
+    const status = TIMESTAMP_STATUS_TR[t.status] ?? t.status;
+    const desc = t.description ? `, açıklama: ${t.description}` : '';
+    lines.push(`- ${t.original_file_name} [${t.id}]: ${status}, damga: ${t.timestamp_date}${desc}`);
+  }
+  lines.push('');
+  lines.push(`Toplam: ${r.total} (sayfa ${r.page}, sayfa boyutu ${r.limit})`);
+  lines.push('');
+  lines.push('Not: Damga dosyasının indirilmesi ve doğrulanması İmzala.org paneli üzerinden yapılır.');
   return lines.join('\n');
 }

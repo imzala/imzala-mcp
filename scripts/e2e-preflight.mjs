@@ -26,18 +26,26 @@
  *   IMZALA_E2E_DEMAND_ID            — a demand id → also tests sozlesme_durumu.
  *   IMZALA_E2E_COMPLETED_DEMAND_ID  — a COMPLETED demand id → also tests
  *                                     imzali_pdf_indir.
- *   IMZALA_E2E_TEST_WRITE=1         — opt-in to exercise the 2 WRITE tools.
- *                                     Off by default: write tools spend credits
- *                                     and/or send real SMS/email, so they must
- *                                     never run in a routine prepublish gate.
- *                                     Even with this set, `hatirlatma_gonder`
- *                                     is NEVER invoked (it sends real messages
- *                                     with no create-only mode) — only its
- *                                     presence in tools/list is checked.
+ *   IMZALA_E2E_TEST_WRITE=1         — opt-in to exercise the WRITE tools.
+ *                                     Off by default: write tools spend credits,
+ *                                     mutate data, and/or send real SMS/email, so
+ *                                     they must never run in a routine prepublish
+ *                                     gate. Even with this set:
+ *                                       - `hatirlatma_gonder` is NEVER invoked
+ *                                         (sends real messages, no create-only
+ *                                         mode) — presence checked via tools/list.
+ *                                       - `sozlesme_iptal` is NEVER auto-invoked
+ *                                         (irreversible cancel); it runs only when
+ *                                         IMZALA_E2E_CANCEL_DEMAND_ID is ALSO set.
+ *                                       - `kisi_ekle` creates a throwaway test
+ *                                         contact when opted in.
  *   IMZALA_E2E_TEMPLATE_ID          — template id for the opt-in
  *                                     sablondan_sozlesme_olustur call (requires
  *                                     IMZALA_E2E_TEST_WRITE=1 + IMZALA_E2E_PARTY_ID).
  *   IMZALA_E2E_PARTY_ID             — template_party_id for the same call.
+ *   IMZALA_E2E_CANCEL_DEMAND_ID     — a PENDING demand id the operator is willing
+ *                                     to CANCEL (irreversible) → tests
+ *                                     sozlesme_iptal. Requires IMZALA_E2E_TEST_WRITE=1.
  *   IMZALA_E2E_SKIP=1               — escape hatch: skip the whole gate (loudly
  *                                     logged). Use only in a real emergency.
  */
@@ -102,15 +110,20 @@ async function main() {
       'eser_tescil',
       'hatirlatma_gonder',
       'imzali_pdf_indir',
+      'kisi_ekle',
+      'kisilerim',
       'sablon_detay',
       'sablondan_sozlesme_olustur',
       'sablonlarim',
       'sozlesme_durumu',
+      'sozlesme_iptal',
+      'sozlesmelerim',
       'whoami',
+      'zaman_damgalarim',
     ];
     const listed = (await client.listTools()).tools.map((t) => t.name).sort();
     if (EXPECTED.some((t) => !listed.includes(t))) fail(`tools/list missing tools. got: ${listed.join(',')}`);
-    ok(`tools/list — 8 tools present (${listed.join(', ')})`);
+    ok(`tools/list — ${EXPECTED.length} tools present (${listed.join(', ')})`);
 
     // --- whoami ---
     const who = await client.callTool({ name: 'whoami', arguments: {} });
@@ -131,6 +144,27 @@ async function main() {
     } else {
       warn('sablon_detay — skipped (account has no templates)');
     }
+
+    // --- sozlesmelerim (new READ tool — counts-only list, no party PII) ---
+    const demandsList = await client.callTool({ name: 'sozlesmelerim', arguments: {} });
+    if (isErr(demandsList) || !/Toplam:|Hiç sözleşme bulunamadı/.test(textOf(demandsList))) {
+      fail(`sozlesmelerim failed: ${textOf(demandsList).slice(0, 160)}`);
+    }
+    ok('sozlesmelerim — contract list returned (counts-only)');
+
+    // --- kisilerim (new READ tool — contact directory, NO T.C. Kimlik No) ---
+    const contactsList = await client.callTool({ name: 'kisilerim', arguments: {} });
+    if (isErr(contactsList) || !/Toplam:|Hiç kişi bulunamadı/.test(textOf(contactsList))) {
+      fail(`kisilerim failed: ${textOf(contactsList).slice(0, 160)}`);
+    }
+    ok('kisilerim — contact list returned (no TC)');
+
+    // --- zaman_damgalarim (new READ tool — RFC3161 timestamp list) ---
+    const timestampsList = await client.callTool({ name: 'zaman_damgalarim', arguments: {} });
+    if (isErr(timestampsList) || !/Toplam:|Hiç zaman damgası bulunamadı/.test(textOf(timestampsList))) {
+      fail(`zaman_damgalarim failed: ${textOf(timestampsList).slice(0, 160)}`);
+    }
+    ok('zaman_damgalarim — timestamp list returned');
 
     // --- eser_tescil (THE regression this gate exists for) ---
     if (process.env.IMZALA_E2E_SKIP_TIMESTAMP === '1') {
@@ -169,11 +203,13 @@ async function main() {
       info('imzali_pdf_indir — skipped (set IMZALA_E2E_COMPLETED_DEMAND_ID to test)');
     }
 
-    // --- write tools (sablondan_sozlesme_olustur, hatirlatma_gonder) ---
-    // OPT-IN ONLY: these tools spend credits and/or send real SMS/email, so
-    // they must never run in the default (routine prepublish) gate run.
+    // --- write tools (sablondan_sozlesme_olustur, sozlesme_iptal, kisi_ekle,
+    //     hatirlatma_gonder) ---
+    // OPT-IN ONLY: these tools spend credits, mutate data, and/or send real
+    // SMS/email, so they must never run in the default (routine prepublish) gate
+    // run. Presence of all four is already asserted via tools/list above.
     if (process.env.IMZALA_E2E_TEST_WRITE !== '1') {
-      info('write tools (sablondan_sozlesme_olustur, hatirlatma_gonder) — SKIPPED by default (set IMZALA_E2E_TEST_WRITE=1 to opt in); presence already verified via tools/list');
+      info('write tools (sablondan_sozlesme_olustur, sozlesme_iptal, kisi_ekle, hatirlatma_gonder) — SKIPPED by default (set IMZALA_E2E_TEST_WRITE=1 to opt in); presence already verified via tools/list');
     } else {
       const writeTemplateId = process.env.IMZALA_E2E_TEMPLATE_ID;
       const writePartyId = process.env.IMZALA_E2E_PARTY_ID;
@@ -200,6 +236,39 @@ async function main() {
       } else {
         warn('sablondan_sozlesme_olustur — skipped (IMZALA_E2E_TEST_WRITE=1 but IMZALA_E2E_TEMPLATE_ID / IMZALA_E2E_PARTY_ID not set)');
       }
+
+      // kisi_ekle creates a throwaway contact (no credits, no messages). Uses a
+      // unique .invalid email so it never collides / never reaches a real inbox.
+      const created = await client.callTool({
+        name: 'kisi_ekle',
+        arguments: {
+          first_name: 'E2E',
+          last_name: 'Preflight',
+          email: `e2e-preflight+${Date.now()}@imzala-mcp.invalid`,
+        },
+      });
+      if (isErr(created) || !/Kişi kaydedildi/.test(textOf(created))) {
+        fail(`kisi_ekle failed: ${textOf(created).slice(0, 200)}`);
+      }
+      ok('kisi_ekle — throwaway contact created (no credits, no messages)');
+
+      // sozlesme_iptal is IRREVERSIBLE (cancels a real demand). NEVER auto-invoke
+      // it against an arbitrary demand; it runs only when the operator explicitly
+      // points it at a demand id they are willing to cancel.
+      const cancelDemandId = process.env.IMZALA_E2E_CANCEL_DEMAND_ID;
+      if (cancelDemandId) {
+        const cancelled = await client.callTool({
+          name: 'sozlesme_iptal',
+          arguments: { demand_id: cancelDemandId, sebep: 'mcp e2e gate' },
+        });
+        if (isErr(cancelled) || !/İptal edildi/.test(textOf(cancelled))) {
+          fail(`sozlesme_iptal failed: ${textOf(cancelled).slice(0, 200)}`);
+        }
+        ok('sozlesme_iptal — demand cancelled (irreversible; explicit target)');
+      } else {
+        info('sozlesme_iptal — NOT invoked (irreversible cancel); set IMZALA_E2E_CANCEL_DEMAND_ID to a disposable PENDING demand to test');
+      }
+
       // hatirlatma_gonder sends REAL SMS/email with no create-only mode — this
       // gate must NEVER invoke it, even under IMZALA_E2E_TEST_WRITE=1. Its
       // presence in tools/list is already asserted above.
