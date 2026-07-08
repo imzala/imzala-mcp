@@ -276,6 +276,37 @@ export interface ListTimestampsInput {
   limit?: number;
 }
 
+// ── Toplu sözleşme oluşturma (POST /api/v1/demands/bulk) ──
+// Body şekli backend'e neredeyse birebir geçer (bkz. CreateDemandPartyMapping
+// gibi snake_case wire-shape tipleri); wrapper (BulkCreateDemandsInput) bu
+// yüzden camelCase DEĞİL, endpoint contract'ıyla aynı alan adlarını kullanır.
+export interface BulkRow {
+  party_mapping: any[];
+  variables?: Record<string, string | number | boolean | null>;
+}
+export interface BulkRowResult {
+  row_index: number;
+  status: 'created' | 'failed';
+  demand_id?: string;
+  signing_urls?: Array<{ first_name?: string; last_name?: string; signing_url: string }>;
+  result_url?: string;
+  dispatched?: number;
+  error?: string;
+  message?: string;
+}
+export interface BulkResult {
+  template_id: string;
+  total: number;
+  created: number;
+  failed: number;
+  results: BulkRowResult[];
+}
+export interface BulkCreateDemandsInput {
+  template_id: string;
+  options?: Record<string, unknown>;
+  rows: BulkRow[];
+}
+
 export class ImzalaApiError extends Error {
   constructor(
     public readonly status: number,
@@ -359,6 +390,7 @@ export function makeClient(o: ImzalaClientOpts): {
   createContact(input: CreateContactInput): Promise<Contact>;
   listTimestamps(input?: ListTimestampsInput): Promise<TimestampListResult>;
   getDemandTimeline(demandId: string): Promise<TimelineResult>;
+  bulkCreateDemands(input: BulkCreateDemandsInput, workspaceId?: string): Promise<BulkResult>;
 } {
   const { apiKey, baseUrl, fetch: fetchFn } = o;
 
@@ -617,8 +649,35 @@ export function makeClient(o: ImzalaClientOpts): {
     return body.data;
   }
 
+  // Bulk endpoint envelope differs from the standard {error, code} shape (see
+  // sendReminder above for another endpoint-specific precedent): success can
+  // be false on a 2xx response (e.g. whole-request rejection before any row
+  // is processed), and the message field takes priority over `error`. Parse
+  // defensively (non-JSON body must still map to ImzalaApiError, not throw a
+  // raw SyntaxError) — mirrors parseErrorBody's robustness.
+  async function bulkCreateDemands(input: BulkCreateDemandsInput, workspaceId?: string): Promise<BulkResult> {
+    const headers: Record<string, string> = { 'X-API-Key': apiKey, 'Content-Type': 'application/json' };
+    if (workspaceId) headers['X-Workspace-Id'] = workspaceId;
+    const res = await fetchFn(`${baseUrl}/api/v1/demands/bulk`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(input),
+    });
+    let json: { success?: boolean; data?: BulkResult; message?: string; error?: string; code?: string } | undefined;
+    try {
+      json = await res.json() as typeof json;
+    } catch {
+      // non-JSON body — falls through to the generic HTTP-status error below.
+    }
+    if (!res.ok || !json?.success) {
+      throw new ImzalaApiError(res.status, json?.code, json?.message ?? json?.error ?? `HTTP ${res.status}`);
+    }
+    return json.data as BulkResult;
+  }
+
   return {
     getMe, getReports, createTimestamp, getDemand, listTemplates, getTemplate, downloadPdf, createDemand, sendReminder,
     listDemands, cancelDemand, listContacts, createContact, listTimestamps, getDemandTimeline, downloadCertificate,
+    bulkCreateDemands,
   };
 }
