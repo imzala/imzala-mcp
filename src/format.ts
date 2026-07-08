@@ -1,4 +1,4 @@
-import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult, CreateDemandResult, ReminderResult, DemandListResult, CancelDemandResult, ContactListResult, Contact, TimestampListResult, TimelineResult, ReportsResult } from './client.js';
+import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult, CreateDemandResult, ReminderResult, DemandListResult, CancelDemandResult, ContactListResult, Contact, TimestampListResult, TimelineResult, ReportsResult, BulkResult } from './client.js';
 import { ImzalaApiError } from './client.js';
 
 /**
@@ -422,6 +422,35 @@ export function formatDemandTimeline(r: TimelineResult): string {
   }
   lines.push('');
   lines.push('Not: Aktör ve IP bilgileri KVKK gereği maskelenmiştir. Resmi denetim/tamamlanma belgesi İmzala.org panelinden indirilir.');
+  return lines.join('\n');
+}
+
+/**
+ * Formats a BulkResult (from toplu_sozlesme_gonder) into a human-readable
+ * Turkish summary: created/failed counts, per-row outcome.
+ *
+ * UNLIKE formatCreateDemand/formatContractStatus, this DOES render the
+ * signing_url. Rationale: toplu_sozlesme_gonder is an explicit bulk-send
+ * tool (caller already opted into notification dispatch for up to 10
+ * named recipients supplied by the caller itself); the caller needs the
+ * per-recipient link to confirm/track delivery. No PII beyond what the
+ * caller already provided in the request is echoed back.
+ */
+export function formatBulkResult(r: BulkResult): string {
+  const lines: string[] = [`${r.total} sözleşmeden ${r.created}'i oluşturuldu, ${r.failed}'i başarısız.`];
+  const created = r.results.filter((x) => x.status === 'created');
+  if (created.length) {
+    lines.push('', 'Oluşturulanlar:');
+    for (const c of created) {
+      const who = c.signing_urls?.[0] ? `${c.signing_urls[0].first_name ?? ''} ${c.signing_urls[0].last_name ?? ''}`.trim() : `Satır ${c.row_index + 1}`;
+      lines.push(`  ${c.row_index + 1}. ${who}: ${c.signing_urls?.[0]?.signing_url ?? c.result_url ?? ''}`);
+    }
+  }
+  const failed = r.results.filter((x) => x.status === 'failed');
+  if (failed.length) {
+    lines.push('', 'Başarısızlar:');
+    for (const f of failed) lines.push(`  ${f.row_index + 1}. ${f.message ?? f.error ?? 'Bilinmeyen hata'} (${f.error ?? ''})`);
+  }
   return lines.join('\n');
 }
 
