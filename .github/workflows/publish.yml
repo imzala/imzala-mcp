@@ -23,6 +23,10 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      # Secret ekli DEĞİLSE boş string olur → aşağıdaki e2e adımı `if` ile atlanır
+      # (fail-closed değil, graceful). Eklenirse e2e gate koşar.
+      E2E_API_KEY: ${{ secrets.IMZALA_E2E_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -53,19 +57,26 @@ jobs:
             exit 1
           fi
 
+      # e2e gate: gerçek built server'ı test-api'ye karşı sürer, read tool'ların
+      # çıktısını assert eder (eser_tescil DOA sınıfı bug'ı yakalar). GRACEFUL —
+      # IMZALA_E2E_API_KEY secret'ı EKLİYSE koşar, EKLİ DEĞİLSE atlanır (publish
+      # kırılmaz). Secret = test ortamı salt-okunur anahtar (timestamps + *:read).
+      - name: E2E gate (yalnız IMZALA_E2E_API_KEY secret'ı ekliyse)
+        if: ${{ env.E2E_API_KEY != '' }}
+        run: npm run e2e
+        env:
+          IMZALA_E2E_API_KEY: ${{ env.E2E_API_KEY }}
+          IMZALA_E2E_BASE_URL: https://test-api.imzala.org
+          IMZALA_E2E_SKIP_TIMESTAMP: '1'
+          # opsiyonel: sozlesme_durumu + imzali_pdf_indir'e gerçek hedef (yoksa atlanır)
+          IMZALA_E2E_DEMAND_ID: ${{ secrets.IMZALA_E2E_DEMAND_ID }}
+          IMZALA_E2E_COMPLETED_DEMAND_ID: ${{ secrets.IMZALA_E2E_COMPLETED_DEMAND_ID }}
+
       - name: Publish
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
-          # e2e gate (prepublishOnly): gerçek built server'ı gerçek backend'e karşı sürer,
-          # 6 read tool'un çıktısını assert eder (eser_tescil DOA sınıfı bug'ı yakalar).
-          # ÖN-KOŞUL: IMZALA_E2E_API_KEY secret'ı SET olmalı (test ortamı, salt-okunur kapsam);
-          #           set değilse e2e "key gerekli" ile abort eder → publish FAIL (fail-closed, kasıtlı).
-          # test-api kullanır (kredi test kredisi) + SKIP_TIMESTAMP=1 (eser_tescil kredisi harcanmaz).
-          IMZALA_E2E_API_KEY: ${{ secrets.IMZALA_E2E_API_KEY }}
-          IMZALA_E2E_BASE_URL: https://test-api.imzala.org
-          IMZALA_E2E_SKIP_TIMESTAMP: '1'
-          # opsiyonel: sozlesme_durumu + imzali_pdf_indir'e gerçek hedef (yoksa o testler atlanır)
-          IMZALA_E2E_DEMAND_ID: ${{ secrets.IMZALA_E2E_DEMAND_ID }}
-          IMZALA_E2E_COMPLETED_DEMAND_ID: ${{ secrets.IMZALA_E2E_COMPLETED_DEMAND_ID }}
-          # Acil durumda e2e'yi geçici atlamak istersen bu satırı ekle: IMZALA_E2E_SKIP: '1'
+          # e2e yukarıda (secret varsa) koştu + build/test explicit adımlarda çalıştı;
+          # prepublishOnly'nin e2e'yi tekrar koşmasını engelle (aksi halde secret
+          # yokken fail-closed olurdu). Publish yine build+test'i tekrar koşar (hızlı).
+          IMZALA_E2E_SKIP: '1'
