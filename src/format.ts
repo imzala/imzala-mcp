@@ -1,4 +1,4 @@
-import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult, CreateDemandResult, ReminderResult, DemandListResult, CancelDemandResult, ContactListResult, Contact, TimestampListResult, TimelineResult } from './client.js';
+import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult, CreateDemandResult, ReminderResult, DemandListResult, CancelDemandResult, ContactListResult, Contact, TimestampListResult, TimelineResult, ReportsResult } from './client.js';
 import { ImzalaApiError } from './client.js';
 
 /**
@@ -423,4 +423,22 @@ export function formatDemandTimeline(r: TimelineResult): string {
   lines.push('');
   lines.push('Not: Aktör ve IP bilgileri KVKK gereği maskelenmiştir. Resmi denetim/tamamlanma belgesi İmzala.org panelinden indirilir.');
   return lines.join('\n');
+}
+
+/**
+ * Formats a ReportsResult (from raporlar) into a readable summary. Counts only,
+ * no PII.
+ */
+export function formatReports(r: ReportsResult): string {
+  const c = r.contracts;
+  return [
+    'Sözleşme özeti:',
+    '',
+    `- Toplam sözleşme: ${c.total}`,
+    `- Bekleyen (imza sürecinde): ${c.pending}`,
+    `- Tamamlanan: ${c.completed}`,
+    `- İptal edilen: ${c.cancelled}`,
+    `- Süresi dolmuş: ${c.expired}`,
+    `- Bu ay oluşturulan: ${c.this_month}`,
+  ].join('\n');
 }

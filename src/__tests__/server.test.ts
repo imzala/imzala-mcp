@@ -28,7 +28,7 @@ describe('createServer', () => {
     expect(server).toBeInstanceOf(McpServer);
   });
 
-  test('registers exactly fifteen tools (14 + sozlesme_sertifikasi)', () => {
+  test('registers exactly sixteen tools (15 + raporlar)', () => {
     const server = createServer(makeTestOpts('imz_x'));
     const tools = (server as unknown as PrivateServer)._registeredTools;
     const names = Object.keys(tools).sort();
@@ -38,6 +38,7 @@ describe('createServer', () => {
       'imzali_pdf_indir',
       'kisi_ekle',
       'kisilerim',
+      'raporlar',
       'sablon_detay',
       'sablondan_sozlesme_olustur',
       'sablonlarim',

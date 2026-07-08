@@ -112,6 +112,7 @@ async function main() {
       'imzali_pdf_indir',
       'kisi_ekle',
       'kisilerim',
+      'raporlar',
       'sablon_detay',
       'sablondan_sozlesme_olustur',
       'sablonlarim',

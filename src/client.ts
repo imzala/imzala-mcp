@@ -4,6 +4,16 @@ export interface ImzalaClientOpts {
   fetch: typeof fetch;
 }
 
+export interface ReportsResult {
+  contracts: {
+    total: number;
+    pending: number;
+    completed: number;
+    cancelled: number;
+    expired: number;
+    this_month: number;
+  };
+}
 export interface MeResult {
   id: string;
   email: string;
@@ -327,6 +337,7 @@ async function parseErrorBody(
 
 export function makeClient(o: ImzalaClientOpts): {
   getMe(): Promise<MeResult>;
+  getReports(): Promise<ReportsResult>;
   createTimestamp(input: {
     fileBuffer: Buffer;
     fileName: string;
@@ -350,6 +361,16 @@ export function makeClient(o: ImzalaClientOpts): {
   getDemandTimeline(demandId: string): Promise<TimelineResult>;
 } {
   const { apiKey, baseUrl, fetch: fetchFn } = o;
+
+  async function getReports(): Promise<ReportsResult> {
+    const res = await fetchFn(`${baseUrl}/api/v1/reports`, {
+      method: 'GET',
+      headers: { 'X-API-Key': apiKey },
+    });
+    if (!res.ok) throw await parseErrorBody(res, res.status);
+    const body = await res.json() as { success: boolean; data: ReportsResult };
+    return body.data;
+  }
 
   async function getMe(): Promise<MeResult> {
     const res = await fetchFn(`${baseUrl}/api/v1/me`, {
@@ -597,7 +618,7 @@ export function makeClient(o: ImzalaClientOpts): {
   }
 
   return {
-    getMe, createTimestamp, getDemand, listTemplates, getTemplate, downloadPdf, createDemand, sendReminder,
+    getMe, getReports, createTimestamp, getDemand, listTemplates, getTemplate, downloadPdf, createDemand, sendReminder,
     listDemands, cancelDemand, listContacts, createContact, listTimestamps, getDemandTimeline, downloadCertificate,
   };
 }
