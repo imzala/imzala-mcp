@@ -28,7 +28,7 @@ describe('createServer', () => {
     expect(server).toBeInstanceOf(McpServer);
   });
 
-  test('registers exactly thirteen tools (8 original + 5 parity: sozlesmelerim, sozlesme_iptal, kisilerim, kisi_ekle, zaman_damgalarim)', () => {
+  test('registers exactly fourteen tools (13 + sozlesme_audit)', () => {
     const server = createServer(makeTestOpts('imz_x'));
     const tools = (server as unknown as PrivateServer)._registeredTools;
     const names = Object.keys(tools).sort();
@@ -41,6 +41,7 @@ describe('createServer', () => {
       'sablon_detay',
       'sablondan_sozlesme_olustur',
       'sablonlarim',
+      'sozlesme_audit',
       'sozlesme_durumu',
       'sozlesme_iptal',
       'sozlesmelerim',

@@ -115,6 +115,7 @@ async function main() {
       'sablon_detay',
       'sablondan_sozlesme_olustur',
       'sablonlarim',
+      'sozlesme_audit',
       'sozlesme_durumu',
       'sozlesme_iptal',
       'sozlesmelerim',

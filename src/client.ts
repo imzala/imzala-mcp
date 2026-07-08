@@ -249,6 +249,18 @@ export interface TimestampListResult {
   page: number;
   limit: number;
 }
+export interface TimelineEvent {
+  id: string;
+  event_type: string;
+  actor_label: string | null;
+  ip_masked: string | null;
+  comment_text: string | null;
+  created_at: string;
+  metadata?: unknown;
+}
+export interface TimelineResult {
+  events: TimelineEvent[];
+}
 export interface ListTimestampsInput {
   page?: number;
   limit?: number;
@@ -334,6 +346,7 @@ export function makeClient(o: ImzalaClientOpts): {
   listContacts(input?: ListContactsInput): Promise<ContactListResult>;
   createContact(input: CreateContactInput): Promise<Contact>;
   listTimestamps(input?: ListTimestampsInput): Promise<TimestampListResult>;
+  getDemandTimeline(demandId: string): Promise<TimelineResult>;
 } {
   const { apiKey, baseUrl, fetch: fetchFn } = o;
 
@@ -558,8 +571,18 @@ export function makeClient(o: ImzalaClientOpts): {
     return body.data;
   }
 
+  async function getDemandTimeline(demandId: string): Promise<TimelineResult> {
+    const res = await fetchFn(`${baseUrl}/api/v1/demands/${encodeURIComponent(demandId)}/timeline`, {
+      method: 'GET',
+      headers: { 'X-API-Key': apiKey },
+    });
+    if (!res.ok) throw await parseErrorBody(res, res.status);
+    const body = await res.json() as { success: boolean; data: TimelineResult };
+    return body.data;
+  }
+
   return {
     getMe, createTimestamp, getDemand, listTemplates, getTemplate, downloadPdf, createDemand, sendReminder,
-    listDemands, cancelDemand, listContacts, createContact, listTimestamps,
+    listDemands, cancelDemand, listContacts, createContact, listTimestamps, getDemandTimeline,
   };
 }

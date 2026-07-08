@@ -1,4 +1,4 @@
-import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult, CreateDemandResult, ReminderResult, DemandListResult, CancelDemandResult, ContactListResult, Contact, TimestampListResult } from './client.js';
+import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult, CreateDemandResult, ReminderResult, DemandListResult, CancelDemandResult, ContactListResult, Contact, TimestampListResult, TimelineResult } from './client.js';
 import { ImzalaApiError } from './client.js';
 
 /**
@@ -389,5 +389,38 @@ export function formatTimestampList(r: TimestampListResult): string {
   lines.push(`Toplam: ${r.total} (sayfa ${r.page}, sayfa boyutu ${r.limit})`);
   lines.push('');
   lines.push('Not: Damga dosyasının indirilmesi ve doğrulanması İmzala.org paneli üzerinden yapılır.');
+  return lines.join('\n');
+}
+
+// Bilinen denetim (timeline) olay tiplerinin Türkçe karşılıkları. Bilinmeyen tip
+// ham haliyle gösterilir (ileri uyumluluk).
+const AUDIT_EVENT_TR: Record<string, string> = {
+  'demand.created': 'Sözleşme oluşturuldu',
+  'party.viewed': 'Taraf görüntüledi',
+  'party.signed': 'Taraf imzaladı',
+  'demand.completed': 'Sözleşme tamamlandı',
+  'demand.cancelled': 'Sözleşme iptal edildi',
+  'party.rejected': 'Taraf reddetti',
+};
+
+/**
+ * Formats a TimelineResult (from sozlesme_audit) into a readable audit trail.
+ * actor_label / ip_masked are already KVKK-masked by the backend; this renderer
+ * never adds unmasked PII.
+ */
+export function formatDemandTimeline(r: TimelineResult): string {
+  if (r.events.length === 0) {
+    return 'Bu sözleşme için henüz denetim kaydı yok.';
+  }
+  const lines: string[] = ['Sözleşme denetim izi (kim, ne, ne zaman):', ''];
+  for (const e of r.events) {
+    const type = AUDIT_EVENT_TR[e.event_type] ?? e.event_type;
+    const who = e.actor_label ? `, ${e.actor_label}` : '';
+    const ip = e.ip_masked ? ` (IP ${e.ip_masked})` : '';
+    const note = e.comment_text ? `, not: ${e.comment_text}` : '';
+    lines.push(`- ${e.created_at}: ${type}${who}${ip}${note}`);
+  }
+  lines.push('');
+  lines.push('Not: Aktör ve IP bilgileri KVKK gereği maskelenmiştir. Resmi denetim/tamamlanma belgesi İmzala.org panelinden indirilir.');
   return lines.join('\n');
 }

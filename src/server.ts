@@ -13,6 +13,7 @@ import { registerSozlesmeIptal } from './tools/sozlesmeIptal.js';
 import { registerKisilerim } from './tools/kisilerim.js';
 import { registerKisiEkle } from './tools/kisiEkle.js';
 import { registerZamanDamgalarim } from './tools/zamanDamgalarim.js';
+import { registerSozlesmeAudit } from './tools/sozlesmeAudit.js';
 
 export interface CreateServerOpts {
   /** Called on every tool invocation to obtain the current auth context. Must be cheap (reads env / header). */
@@ -36,7 +37,7 @@ export interface CreateServerOpts {
 // Reported to MCP clients in the initialize handshake.
 // KEEP IN SYNC with package.json "version" on every release
 // (enforced by a unit test in server.test.ts).
-export const SERVER_VERSION = '1.3.0';
+export const SERVER_VERSION = '1.4.0';
 
 export function createServer(opts: CreateServerOpts): McpServer {
   const server = new McpServer({ name: 'imzala-mcp', version: SERVER_VERSION });
@@ -73,6 +74,7 @@ export function createServer(opts: CreateServerOpts): McpServer {
   registerKisilerim(server, resolveClient);
   registerKisiEkle(server, resolveClient);
   registerZamanDamgalarim(server, resolveClient);
+  registerSozlesmeAudit(server, resolveClient);
 
   return server;
 }
