@@ -339,6 +339,7 @@ export function makeClient(o: ImzalaClientOpts): {
   listTemplates(page?: number, limit?: number): Promise<TemplateListResult>;
   getTemplate(id: string): Promise<TemplateDetailResult>;
   downloadPdf(url: string): Promise<Buffer>;
+  downloadCertificate(demandId: string): Promise<Buffer>;
   createDemand(input: CreateDemandInput): Promise<CreateDemandResult>;
   sendReminder(input: SendReminderInput): Promise<ReminderResult>;
   listDemands(input?: ListDemandsInput): Promise<DemandListResult>;
@@ -443,6 +444,20 @@ export function makeClient(o: ImzalaClientOpts): {
 
   async function downloadPdf(url: string): Promise<Buffer> {
     const res = await fetchFn(url, { method: 'GET' });
+    if (!res.ok) {
+      throw await parseErrorBody(res, res.status);
+    }
+    const ab = await res.arrayBuffer();
+    return Buffer.from(ab);
+  }
+
+  // Tamamlanma/denetim sertifikası PDF'i — scope'lu v1 endpoint (X-API-Key ile).
+  // Backend yalnız COMPLETED sözleşmede üretir (aksi 409); sahiplik doğrulanır.
+  async function downloadCertificate(demandId: string): Promise<Buffer> {
+    const res = await fetchFn(`${baseUrl}/api/v1/demands/${encodeURIComponent(demandId)}/certificate`, {
+      method: 'GET',
+      headers: { 'X-API-Key': apiKey },
+    });
     if (!res.ok) {
       throw await parseErrorBody(res, res.status);
     }
@@ -583,6 +598,6 @@ export function makeClient(o: ImzalaClientOpts): {
 
   return {
     getMe, createTimestamp, getDemand, listTemplates, getTemplate, downloadPdf, createDemand, sendReminder,
-    listDemands, cancelDemand, listContacts, createContact, listTimestamps, getDemandTimeline,
+    listDemands, cancelDemand, listContacts, createContact, listTimestamps, getDemandTimeline, downloadCertificate,
   };
 }

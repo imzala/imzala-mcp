@@ -118,6 +118,7 @@ async function main() {
       'sozlesme_audit',
       'sozlesme_durumu',
       'sozlesme_iptal',
+      'sozlesme_sertifikasi',
       'sozlesmelerim',
       'whoami',
       'zaman_damgalarim',
