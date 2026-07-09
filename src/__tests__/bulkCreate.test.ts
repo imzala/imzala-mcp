@@ -62,11 +62,17 @@ test('success:false → ImzalaApiError, mesaj json.message öncelikli', async ()
   ).rejects.toMatchObject({ status: 200, code: 'TEMPLATE_NOT_FOUND', message: 'Şablon bulunamadı' });
 });
 
-test('formatBulkResult — özet, PII sızmaz, em-dash yok', () => {
+test('formatBulkResult — özet, imza-linki SIZMAZ, sonuç-linki görünür, em-dash yok', () => {
   const out = formatBulkResult({ template_id: 't', total: 2, created: 1, failed: 1, results: [
-    { row_index: 0, status: 'created', demand_id: 'd1', signing_urls: [{ first_name: 'Ali', last_name: 'Y', signing_url: 'https://e.imzala.org/imza/p1' }] },
+    { row_index: 0, status: 'created', demand_id: 'd1', result_url: 'https://e.imzala.org/sonuc/d1', signing_urls: [{ first_name: 'Ali', last_name: 'Y', signing_url: 'https://e.imzala.org/imza/p1' }] },
     { row_index: 1, status: 'failed', error: 'INSUFFICIENT_CREDITS', message: 'yetersiz' } ] });
   expect(out).toContain("2 sözleşmeden 1'i oluşturuldu");
-  expect(out).toContain('https://e.imzala.org/imza/p1');
+  // SECURITY: signing_url (bearer link) must NOT leak to the AI provider
+  expect(out).not.toContain('imza/p1');
+  expect(out).not.toContain('/imza/');
+  // party name + PUBLIC result page are fine
+  expect(out).toContain('Ali Y');
+  expect(out).toContain('https://e.imzala.org/sonuc/d1');
+  expect(out).toContain('yetersiz');
   expect(out).not.toContain('—');
 });

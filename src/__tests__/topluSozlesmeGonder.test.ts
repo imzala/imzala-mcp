@@ -62,6 +62,7 @@ describe('toplu_sozlesme_gonder tool', () => {
             row_index: 0,
             status: 'created',
             demand_id: 'd1',
+            result_url: 'https://e.imzala.org/sonuc/d1',
             signing_urls: [{ first_name: 'A', last_name: 'B', signing_url: 'https://e.imzala.org/imza/p1' }],
           },
         ],
@@ -73,7 +74,9 @@ describe('toplu_sozlesme_gonder tool', () => {
     const result = await tools['toplu_sozlesme_gonder'].handler({ template_id: 't1', rows: [oneRow] }, {});
     expect(result.isError).toBeUndefined();
     expect(result.content[0].text).toContain("1 sözleşmeden 1'i oluşturuldu");
-    expect(result.content[0].text).toContain('https://e.imzala.org/imza/p1');
+    // SECURITY: bearer signing link must NOT reach the AI provider; public result page is fine
+    expect(result.content[0].text).not.toContain('/imza/');
+    expect(result.content[0].text).toContain('https://e.imzala.org/sonuc/d1');
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe('https://test-api.imzala.org/api/v1/demands/bulk');

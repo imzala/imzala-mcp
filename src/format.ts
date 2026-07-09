@@ -429,12 +429,13 @@ export function formatDemandTimeline(r: TimelineResult): string {
  * Formats a BulkResult (from toplu_sozlesme_gonder) into a human-readable
  * Turkish summary: created/failed counts, per-row outcome.
  *
- * UNLIKE formatCreateDemand/formatContractStatus, this DOES render the
- * signing_url. Rationale: toplu_sozlesme_gonder is an explicit bulk-send
- * tool (caller already opted into notification dispatch for up to 10
- * named recipients supplied by the caller itself); the caller needs the
- * per-recipient link to confirm/track delivery. No PII beyond what the
- * caller already provided in the request is echoed back.
+ * SECURITY: `signing_url` (/imza/:party_id) is a single-access bearer link
+ * with no extra auth — same as formatCreateDemand/formatContractStatus, it is
+ * intentionally NOT rendered here. This output flows to a third-party AI
+ * provider; a leaked signing link would let anyone sign on the party's behalf
+ * without proving who they are (impersonation). Recipients receive their own
+ * link privately via the dispatched email/SMS. Only the party name and the
+ * PUBLIC result page (`result_url` = /sonuc/:demand_id, read-only) are shown.
  */
 export function formatBulkResult(r: BulkResult): string {
   const lines: string[] = [`${r.total} sözleşmeden ${r.created}'i oluşturuldu, ${r.failed}'i başarısız.`];
@@ -442,8 +443,11 @@ export function formatBulkResult(r: BulkResult): string {
   if (created.length) {
     lines.push('', 'Oluşturulanlar:');
     for (const c of created) {
-      const who = c.signing_urls?.[0] ? `${c.signing_urls[0].first_name ?? ''} ${c.signing_urls[0].last_name ?? ''}`.trim() : `Satır ${c.row_index + 1}`;
-      lines.push(`  ${c.row_index + 1}. ${who}: ${c.signing_urls?.[0]?.signing_url ?? c.result_url ?? ''}`);
+      const who = c.signing_urls?.[0]
+        ? `${c.signing_urls[0].first_name ?? ''} ${c.signing_urls[0].last_name ?? ''}`.trim()
+        : `Satır ${c.row_index + 1}`;
+      const suffix = c.result_url ? ` (Sonuç: ${c.result_url})` : '';
+      lines.push(`  ${c.row_index + 1}. ${who || `Satır ${c.row_index + 1}`}${suffix}`);
     }
   }
   const failed = r.results.filter((x) => x.status === 'failed');
@@ -451,6 +455,7 @@ export function formatBulkResult(r: BulkResult): string {
     lines.push('', 'Başarısızlar:');
     for (const f of failed) lines.push(`  ${f.row_index + 1}. ${f.message ?? f.error ?? 'Bilinmeyen hata'} (${f.error ?? ''})`);
   }
+  lines.push('', 'İmza bağlantıları güvenlik gereği burada gösterilmez; alıcılara davet e-posta ve SMS ile ulaşır. Panelden takip edebilirsiniz.');
   return lines.join('\n');
 }
 
