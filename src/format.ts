@@ -437,7 +437,7 @@ export function formatDemandTimeline(r: TimelineResult): string {
  * link privately via the dispatched email/SMS. Only the party name and the
  * PUBLIC result page (`result_url` = /sonuc/:demand_id, read-only) are shown.
  */
-export function formatBulkResult(r: BulkResult): string {
+export function formatBulkResult(r: BulkResult, sent: boolean): string {
   const lines: string[] = [`${r.total} sözleşmeden ${r.created}'i oluşturuldu, ${r.failed}'i başarısız.`];
   const created = r.results.filter((x) => x.status === 'created');
   if (created.length) {
@@ -455,7 +455,13 @@ export function formatBulkResult(r: BulkResult): string {
     lines.push('', 'Başarısızlar:');
     for (const f of failed) lines.push(`  ${f.row_index + 1}. ${f.message ?? f.error ?? 'Bilinmeyen hata'} (${f.error ?? ''})`);
   }
-  lines.push('', 'İmza bağlantıları güvenlik gereği burada gösterilmez; alıcılara davet e-posta ve SMS ile ulaşır. Panelden takip edebilirsiniz.');
+  lines.push('');
+  if (sent) {
+    lines.push('Davetler gönderildi; her alıcı imza bağlantısını e-posta ve SMS ile alır.');
+  } else {
+    lines.push('Davet gönderilmedi. Taraflara imza daveti göndermek için gonder: true kullanın veya panelden gönderin.');
+  }
+  lines.push('İmza bağlantıları güvenlik gereği burada gösterilmez (tek kullanımlık erişim linkidir); panelden takip edebilirsiniz.');
   return lines.join('\n');
 }
 

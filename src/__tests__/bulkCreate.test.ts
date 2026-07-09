@@ -63,9 +63,10 @@ test('success:false → ImzalaApiError, mesaj json.message öncelikli', async ()
 });
 
 test('formatBulkResult — özet, imza-linki SIZMAZ, sonuç-linki görünür, em-dash yok', () => {
-  const out = formatBulkResult({ template_id: 't', total: 2, created: 1, failed: 1, results: [
-    { row_index: 0, status: 'created', demand_id: 'd1', result_url: 'https://e.imzala.org/sonuc/d1', signing_urls: [{ first_name: 'Ali', last_name: 'Y', signing_url: 'https://e.imzala.org/imza/p1' }] },
-    { row_index: 1, status: 'failed', error: 'INSUFFICIENT_CREDITS', message: 'yetersiz' } ] });
+  const data = { template_id: 't', total: 2, created: 1, failed: 1, results: [
+    { row_index: 0, status: 'created' as const, demand_id: 'd1', result_url: 'https://e.imzala.org/sonuc/d1', signing_urls: [{ first_name: 'Ali', last_name: 'Y', signing_url: 'https://e.imzala.org/imza/p1' }] },
+    { row_index: 1, status: 'failed' as const, error: 'INSUFFICIENT_CREDITS', message: 'yetersiz' } ] };
+  const out = formatBulkResult(data, false);
   expect(out).toContain("2 sözleşmeden 1'i oluşturuldu");
   // SECURITY: signing_url (bearer link) must NOT leak to the AI provider
   expect(out).not.toContain('imza/p1');
@@ -75,4 +76,7 @@ test('formatBulkResult — özet, imza-linki SIZMAZ, sonuç-linki görünür, em
   expect(out).toContain('https://e.imzala.org/sonuc/d1');
   expect(out).toContain('yetersiz');
   expect(out).not.toContain('—');
+  // sent=false vs true wording
+  expect(out).toContain('Davet gönderilmedi');
+  expect(formatBulkResult(data, true)).toContain('Davetler gönderildi');
 });

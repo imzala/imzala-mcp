@@ -83,6 +83,25 @@ describe('toplu_sozlesme_gonder tool', () => {
     const sentBody = JSON.parse((init as RequestInit).body as string);
     expect(sentBody.template_id).toBe('t1');
     expect(sentBody.rows).toHaveLength(1);
+    // SAFE DEFAULT: without gonder, the tool suppresses dispatch (create-only)
+    expect(sentBody.options.dispatch_notifications).toBe(false);
+    expect(result.content[0].text).toContain('Davet gönderilmedi');
+  });
+
+  test('gonder:true opts into dispatch (dispatch_notifications=true, "gönderildi")', async () => {
+    const okBody = {
+      success: true,
+      data: { template_id: 't1', total: 1, created: 1, failed: 0, results: [
+        { row_index: 0, status: 'created', demand_id: 'd1', result_url: 'https://e.imzala.org/sonuc/d1', signing_urls: [{ first_name: 'A', last_name: 'B', signing_url: 'https://e.imzala.org/imza/p1' }] },
+      ] },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(okBody), { status: 200 }));
+    const server = createServer(makeTestOpts('imz_x', fetchMock as unknown as typeof fetch));
+    const tools = (server as unknown as PrivateServer)._registeredTools;
+    const result = await tools['toplu_sozlesme_gonder'].handler({ template_id: 't1', gonder: true, rows: [oneRow] }, {});
+    const sentBody = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(sentBody.options.dispatch_notifications).toBe(true);
+    expect(result.content[0].text).toContain('Davetler gönderildi');
   });
 
   test('handler maps API errors via formatError (does not throw)', async () => {
