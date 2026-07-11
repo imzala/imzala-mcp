@@ -36,6 +36,15 @@ describe('listDemands', () => {
     expect(url).toContain('q=kira+s%C3%B6zle%C5%9Fmesi');
   });
 
+  test('threads from + to date range into the query string', async () => {
+    const fetchFn = mockFetchOk({ success: true, data: LIST });
+    const c = makeClient({ apiKey: 'imz_x', baseUrl: 'https://api-prd.imzala.org', fetch: fetchFn as unknown as typeof fetch });
+    await c.listDemands({ from: '2026-06-01', to: '2026-06-30' });
+    const url = fetchFn.mock.calls[0][0] as string;
+    expect(url).toContain('from=2026-06-01');
+    expect(url).toContain('to=2026-06-30');
+  });
+
   test('throws ImzalaApiError on 403 insufficient scope', async () => {
     const fetchFn = vi.fn().mockResolvedValue({ ok: false, status: 403, json: async () => ({ error: 'no scope', code: 'INSUFFICIENT_SCOPE' }) });
     const c = makeClient({ apiKey: 'imz_x', baseUrl: 'https://api-prd.imzala.org', fetch: fetchFn as unknown as typeof fetch });

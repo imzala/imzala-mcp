@@ -182,6 +182,10 @@ export interface ListDemandsInput {
   /** API status filtresi (PENDING/COMPLETED/CANCELLED/EXPIRED). Tool Türkçe `durum`'u buraya map eder. */
   status?: string;
   q?: string;
+  /** Tarih aralığı başlangıcı (ISO YYYY-MM-DD). createdAt >= from. */
+  from?: string;
+  /** Tarih aralığı bitişi (ISO YYYY-MM-DD). createdAt <= to. */
+  to?: string;
   page?: number;
   limit?: number;
 }
@@ -567,6 +571,8 @@ export function makeClient(o: ImzalaClientOpts): {
     params.set('limit', String(input.limit ?? 20));
     if (input.q) params.set('q', input.q);
     if (input.status) params.set('status', input.status);
+    if (input.from) params.set('from', input.from);
+    if (input.to) params.set('to', input.to);
     const res = await fetchFn(`${baseUrl}/api/v1/demands?${params.toString()}`, {
       method: 'GET',
       headers: { 'X-API-Key': apiKey },
