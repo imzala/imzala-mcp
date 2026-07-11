@@ -36,6 +36,10 @@ describe('formatTemplateDetail', () => {
     expect(out).toContain('kira_bedeli');
     expect(out).toMatch(/kira_bedeli.*zorunlu/s);
     expect(out).toContain('3 sayfa');
+    // template_party_id UUID must be surfaced so the model fills party_mapping correctly
+    // (eval bulgusu: model UUID görmeyince label'ı id sanıp create 500 alıyordu)
+    expect(out).toContain('template_party_id: tp1');
+    expect(out).toContain('template_party_id: tp2');
   });
 
   test('no variables', () => {

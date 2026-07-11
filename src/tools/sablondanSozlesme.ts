@@ -4,7 +4,7 @@ import type { ResolveClient } from './whoami.js';
 import { formatCreateDemand, formatError } from '../format.js';
 
 const partySchema = z.object({
-  template_party_id: z.string().describe('Şablondaki taraf kimliği (sablon_detay ile öğrenin)'),
+  template_party_id: z.string().describe('Şablondaki tarafın tam kimliği (UUID). sablon_detay çıktısında her taraf için verilen "template_party_id" değerini AYNEN kullan; tarafın adını/etiketini (ör. "İmzalayan") DEĞİL.'),
   first_name: z.string(),
   last_name: z.string(),
   email: z.string().optional(),

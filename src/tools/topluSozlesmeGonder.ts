@@ -4,7 +4,7 @@ import type { ResolveClient } from './whoami.js';
 import { formatBulkResult, formatError } from '../format.js';
 
 const bulkRowSchema = z.object({
-  party_mapping: z.array(z.any()).describe('Bu satırın taraf eşlemesi (sablondan_sozlesme_olustur ile aynı şekil: template_party_id + ad soyad + email/phone)'),
+  party_mapping: z.array(z.any()).describe('Bu satırın taraf eşlemesi (sablondan_sozlesme_olustur ile aynı şekil: template_party_id + ad soyad + email/phone). template_party_id = sablon_detay çıktısındaki tam UUID; taraf adını/etiketini DEĞİL.'),
   variables: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().describe('Bu satıra özel değişkenler'),
 });
 

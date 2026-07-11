@@ -190,9 +190,9 @@ export function formatTemplateDetail(t: TemplateDetailResult): string {
   if (t.category) lines.push(`Kategori: ${t.category}`);
   lines.push(`Sayfa sayısı: ${t.pages_count} sayfa, ${t.usage_count} kez kullanıldı`);
   lines.push('');
-  lines.push('Taraflar:');
+  lines.push('Taraflar (sözleşme oluştururken party_mapping.template_party_id olarak bu id kullanılır):');
   for (const p of t.parties) {
-    lines.push(`- ${p.label} (sıra ${p.order})${p.is_required ? ', zorunlu' : ''}`);
+    lines.push(`- ${p.label} (sıra ${p.order})${p.is_required ? ', zorunlu' : ''} — template_party_id: ${p.id}`);
   }
   lines.push('');
   if (t.variables.length === 0) {
