@@ -46,6 +46,7 @@ describe('createServer', () => {
       'sozlesme_durumu',
       'sozlesme_iptal',
       'sozlesme_sertifikasi',
+      'sozlesme_sil',
       'sozlesmelerim',
       'toplu_sozlesme_gonder',
       'whoami',

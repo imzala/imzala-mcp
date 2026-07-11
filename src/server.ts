@@ -10,6 +10,7 @@ import { registerSablondanSozlesme } from './tools/sablondanSozlesme.js';
 import { registerHatirlatmaGonder } from './tools/hatirlatmaGonder.js';
 import { registerSozlesmelerim } from './tools/sozlesmelerim.js';
 import { registerSozlesmeIptal } from './tools/sozlesmeIptal.js';
+import { registerSozlesmeSil } from './tools/sozlesmeSil.js';
 import { registerKisilerim } from './tools/kisilerim.js';
 import { registerKisiEkle } from './tools/kisiEkle.js';
 import { registerZamanDamgalarim } from './tools/zamanDamgalarim.js';
@@ -40,7 +41,7 @@ export interface CreateServerOpts {
 // Reported to MCP clients in the initialize handshake.
 // KEEP IN SYNC with package.json "version" on every release
 // (enforced by a unit test in server.test.ts).
-export const SERVER_VERSION = '1.7.5';
+export const SERVER_VERSION = '1.7.6';
 
 export function createServer(opts: CreateServerOpts): McpServer {
   const server = new McpServer({ name: 'imzala-mcp', version: SERVER_VERSION });
@@ -74,6 +75,7 @@ export function createServer(opts: CreateServerOpts): McpServer {
   registerHatirlatmaGonder(server, resolveClient);
   registerSozlesmelerim(server, resolveClient);
   registerSozlesmeIptal(server, resolveClient);
+  registerSozlesmeSil(server, resolveClient);
   registerKisilerim(server, resolveClient);
   registerKisiEkle(server, resolveClient);
   registerZamanDamgalarim(server, resolveClient);

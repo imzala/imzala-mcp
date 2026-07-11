@@ -1,4 +1,4 @@
-import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult, CreateDemandResult, ReminderResult, DemandListResult, CancelDemandResult, ContactListResult, Contact, TimestampListResult, TimelineResult, ReportsResult, BulkResult } from './client.js';
+import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult, CreateDemandResult, ReminderResult, DemandListResult, CancelDemandResult, DeleteDemandResult, ContactListResult, Contact, TimestampListResult, TimelineResult, ReportsResult, BulkResult } from './client.js';
 import { ImzalaApiError } from './client.js';
 
 /**
@@ -315,6 +315,13 @@ export function formatCancelDemand(r: CancelDemandResult): string {
   lines.push('');
   lines.push('Bu, İmzala.org üzerindeki sözleşme talebinin iptalidir (platform işlemi); imzalanmış bir belgenin hukuki feshi değildir. İşlem geri alınamaz; bekleyen imza davetleri ve hatırlatmalar durdurulur.');
   return lines.join('\n');
+}
+
+export function formatDeleteDemand(r: DeleteDemandResult): string {
+  return [
+    `Sözleşme kalıcı olarak silindi [${r.id}].`,
+    'Bu işlem geri ALINAMAZ: sözleşme, sayfaları ve dosyaları tamamen kaldırıldı. Kayıt artık listelerde görünmez.',
+  ].join('\n');
 }
 
 /**

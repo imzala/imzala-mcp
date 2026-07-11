@@ -201,6 +201,11 @@ export interface CancelDemandResult {
   refunded?: number;
 }
 
+export interface DeleteDemandResult {
+  id: string;
+  deleted: boolean;
+}
+
 // ── Kişi (Contact) — liste + oluştur. 🔴 KVKK: TC (government_id) YOK. ──
 export interface Contact {
   id: string;
@@ -390,6 +395,7 @@ export function makeClient(o: ImzalaClientOpts): {
   sendReminder(input: SendReminderInput): Promise<ReminderResult>;
   listDemands(input?: ListDemandsInput): Promise<DemandListResult>;
   cancelDemand(demandId: string, reason?: string): Promise<CancelDemandResult>;
+  deleteDemand(demandId: string): Promise<DeleteDemandResult>;
   listContacts(input?: ListContactsInput): Promise<ContactListResult>;
   createContact(input: CreateContactInput): Promise<Contact>;
   listTimestamps(input?: ListTimestampsInput): Promise<TimestampListResult>;
@@ -595,6 +601,16 @@ export function makeClient(o: ImzalaClientOpts): {
     return parsed.data;
   }
 
+  async function deleteDemand(demandId: string): Promise<DeleteDemandResult> {
+    const res = await fetchFn(`${baseUrl}/api/v1/demands/${encodeURIComponent(demandId)}`, {
+      method: 'DELETE',
+      headers: { 'X-API-Key': apiKey },
+    });
+    if (!res.ok) throw await parseErrorBody(res, res.status);
+    const parsed = await res.json() as { success: boolean; data: DeleteDemandResult };
+    return parsed.data;
+  }
+
   async function listContacts(input: ListContactsInput = {}): Promise<ContactListResult> {
     const params = new URLSearchParams();
     params.set('page', String(input.page ?? 1));
@@ -683,7 +699,7 @@ export function makeClient(o: ImzalaClientOpts): {
 
   return {
     getMe, getReports, createTimestamp, getDemand, listTemplates, getTemplate, downloadPdf, createDemand, sendReminder,
-    listDemands, cancelDemand, listContacts, createContact, listTimestamps, getDemandTimeline, downloadCertificate,
+    listDemands, cancelDemand, deleteDemand, listContacts, createContact, listTimestamps, getDemandTimeline, downloadCertificate,
     bulkCreateDemands,
   };
 }
