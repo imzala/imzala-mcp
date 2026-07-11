@@ -37,7 +37,7 @@ export function registerSozlesmelerim(server: McpServer, resolveClient: ResolveC
     'sozlesmelerim',
     {
       description:
-        'İmzala hesabındaki (veya organizasyon çalışma alanındaki) sözleşmeleri listeler. Duruma (bekliyor/tamamlandi/iptal/suresi-doldu), başlığa ve TARİH ARALIĞINA (baslangic_tarih / bitis_tarih) göre filtrelenebilir, sayfalanır. "Son 30 gün", "bu ay" gibi tarih sorularında baslangic_tarih/bitis_tarih alanlarını kullanın. Yalnızca özet döner (başlık, durum, imzalayan taraf sayısı); taraf isimleri/e-postaları KVKK gereği listelenmez, ayrıntı için sozlesme_durumu aracını kimlik ile çağırın.',
+        'İmzala hesabındaki (veya organizasyon çalışma alanındaki) sözleşmeleri listeler. Duruma (bekliyor/tamamlandi/iptal/suresi-doldu), başlığa ve TARİH ARALIĞINA (baslangic_tarih / bitis_tarih) göre filtrelenebilir, sayfalanır. "Son 30 gün", "bu ay" gibi tarih sorularında baslangic_tarih/bitis_tarih alanlarını kullanın. durum belirtmezsen TÜM durumlar birlikte döner; her durum için aracı ayrı ayrı çağırma (tek çağrı yeterli). Yalnızca özet döner (başlık, durum, imzalayan taraf sayısı); taraf isimleri/e-postaları KVKK gereği listelenmez, ayrıntı için sozlesme_durumu aracını kimlik ile çağırın.',
       inputSchema: sozlesmelerimInputSchema,
     },
     async (args) => {
