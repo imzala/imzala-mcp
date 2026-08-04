@@ -20,7 +20,7 @@ describe('listTemplates', () => {
     await c.listTemplates(2, 50);
     expect(fetchFn).toHaveBeenCalledWith(
       'https://api-prd.imzala.org/api/v1/templates?page=2&limit=50',
-      { method: 'GET', headers: { 'X-API-Key': 'imz_x' } },
+      { method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.8.0' } },
     );
   });
 
@@ -30,7 +30,7 @@ describe('listTemplates', () => {
     await c.listTemplates();
     expect(fetchFn).toHaveBeenCalledWith(
       'https://api-prd.imzala.org/api/v1/templates?page=1&limit=20',
-      { method: 'GET', headers: { 'X-API-Key': 'imz_x' } },
+      { method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.8.0' } },
     );
   });
 });

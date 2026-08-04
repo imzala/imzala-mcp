@@ -1,3 +1,8 @@
+import { SERVER_VERSION } from './version.js';
+
+/** Her istekte gönderilen UA — backend MCP trafiğini `startsWith('imzala-mcp/')` ile ayrıştırır. */
+const USER_AGENT = `imzala-mcp/${SERVER_VERSION}`;
+
 export interface ImzalaClientOpts {
   apiKey: string;
   baseUrl: string;
@@ -407,7 +412,7 @@ export function makeClient(o: ImzalaClientOpts): {
   async function getReports(): Promise<ReportsResult> {
     const res = await fetchFn(`${baseUrl}/api/v1/reports`, {
       method: 'GET',
-      headers: { 'X-API-Key': apiKey },
+      headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
     });
     if (!res.ok) throw await parseErrorBody(res, res.status);
     const body = await res.json() as { success: boolean; data: ReportsResult };
@@ -417,7 +422,7 @@ export function makeClient(o: ImzalaClientOpts): {
   async function getMe(): Promise<MeResult> {
     const res = await fetchFn(`${baseUrl}/api/v1/me`, {
       method: 'GET',
-      headers: { 'X-API-Key': apiKey },
+      headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
     });
     if (!res.ok) {
       throw await parseErrorBody(res, res.status);
@@ -452,7 +457,7 @@ export function makeClient(o: ImzalaClientOpts): {
       form.append('owner_last_name', input.ownerLastName);
     }
 
-    const headers: Record<string, string> = { 'X-API-Key': apiKey };
+    const headers: Record<string, string> = { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT };
     if (input.idempotencyKey !== undefined) {
       headers['Idempotency-Key'] = input.idempotencyKey;
     }
@@ -472,7 +477,7 @@ export function makeClient(o: ImzalaClientOpts): {
   async function getDemand(id: string): Promise<DemandStatusResult> {
     const res = await fetchFn(`${baseUrl}/api/v1/demands/${encodeURIComponent(id)}`, {
       method: 'GET',
-      headers: { 'X-API-Key': apiKey },
+      headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
     });
     if (!res.ok) {
       throw await parseErrorBody(res, res.status);
@@ -484,7 +489,7 @@ export function makeClient(o: ImzalaClientOpts): {
   async function listTemplates(page = 1, limit = 20): Promise<TemplateListResult> {
     const res = await fetchFn(`${baseUrl}/api/v1/templates?page=${page}&limit=${limit}`, {
       method: 'GET',
-      headers: { 'X-API-Key': apiKey },
+      headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
     });
     if (!res.ok) {
       throw await parseErrorBody(res, res.status);
@@ -496,7 +501,7 @@ export function makeClient(o: ImzalaClientOpts): {
   async function getTemplate(id: string): Promise<TemplateDetailResult> {
     const res = await fetchFn(`${baseUrl}/api/v1/templates/${encodeURIComponent(id)}`, {
       method: 'GET',
-      headers: { 'X-API-Key': apiKey },
+      headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
     });
     if (!res.ok) {
       throw await parseErrorBody(res, res.status);
@@ -506,7 +511,7 @@ export function makeClient(o: ImzalaClientOpts): {
   }
 
   async function downloadPdf(url: string): Promise<Buffer> {
-    const res = await fetchFn(url, { method: 'GET' });
+    const res = await fetchFn(url, { method: 'GET', headers: { 'User-Agent': USER_AGENT } });
     if (!res.ok) {
       throw await parseErrorBody(res, res.status);
     }
@@ -519,7 +524,7 @@ export function makeClient(o: ImzalaClientOpts): {
   async function downloadCertificate(demandId: string): Promise<Buffer> {
     const res = await fetchFn(`${baseUrl}/api/v1/demands/${encodeURIComponent(demandId)}/certificate`, {
       method: 'GET',
-      headers: { 'X-API-Key': apiKey },
+      headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
     });
     if (!res.ok) {
       throw await parseErrorBody(res, res.status);
@@ -539,7 +544,7 @@ export function makeClient(o: ImzalaClientOpts): {
     // so the API's default (send SMS+email to every party) takes effect.
     if (!input.send) body.dispatch_notifications = false;
 
-    const headers: Record<string, string> = { 'X-API-Key': apiKey, 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = { 'X-API-Key': apiKey, 'Content-Type': 'application/json', 'User-Agent': USER_AGENT };
     if (input.idempotencyKey !== undefined) headers['Idempotency-Key'] = input.idempotencyKey;
 
     const res = await fetchFn(`${baseUrl}/api/v1/demands`, { method: 'POST', headers, body: JSON.stringify(body) });
@@ -554,7 +559,7 @@ export function makeClient(o: ImzalaClientOpts): {
     if (input.force !== undefined) body.force = input.force;
     const res = await fetchFn(`${baseUrl}/api/v1/demands/${encodeURIComponent(input.demandId)}/reminders`, {
       method: 'POST',
-      headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+      headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
       body: JSON.stringify(body),
     });
     if (!res.ok) {
@@ -581,7 +586,7 @@ export function makeClient(o: ImzalaClientOpts): {
     if (input.to) params.set('to', input.to);
     const res = await fetchFn(`${baseUrl}/api/v1/demands?${params.toString()}`, {
       method: 'GET',
-      headers: { 'X-API-Key': apiKey },
+      headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
     });
     if (!res.ok) throw await parseErrorBody(res, res.status);
     const body = await res.json() as { success: boolean; data: DemandListResult };
@@ -593,7 +598,7 @@ export function makeClient(o: ImzalaClientOpts): {
     if (reason !== undefined && reason !== '') body.reason = reason;
     const res = await fetchFn(`${baseUrl}/api/v1/demands/${encodeURIComponent(demandId)}/cancel`, {
       method: 'POST',
-      headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+      headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
       body: JSON.stringify(body),
     });
     if (!res.ok) throw await parseErrorBody(res, res.status);
@@ -604,7 +609,7 @@ export function makeClient(o: ImzalaClientOpts): {
   async function deleteDemand(demandId: string): Promise<DeleteDemandResult> {
     const res = await fetchFn(`${baseUrl}/api/v1/demands/${encodeURIComponent(demandId)}`, {
       method: 'DELETE',
-      headers: { 'X-API-Key': apiKey },
+      headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
     });
     if (!res.ok) throw await parseErrorBody(res, res.status);
     const parsed = await res.json() as { success: boolean; data: DeleteDemandResult };
@@ -618,7 +623,7 @@ export function makeClient(o: ImzalaClientOpts): {
     if (input.q) params.set('q', input.q);
     const res = await fetchFn(`${baseUrl}/api/v1/contacts?${params.toString()}`, {
       method: 'GET',
-      headers: { 'X-API-Key': apiKey },
+      headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
     });
     if (!res.ok) throw await parseErrorBody(res, res.status);
     const body = await res.json() as { success: boolean; data: ContactListResult };
@@ -640,7 +645,7 @@ export function makeClient(o: ImzalaClientOpts): {
     if (input.address_line !== undefined) body.address_line = input.address_line;
     const res = await fetchFn(`${baseUrl}/api/v1/contacts`, {
       method: 'POST',
-      headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+      headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
       body: JSON.stringify(body),
     });
     if (!res.ok) throw await parseErrorBody(res, res.status);
@@ -654,7 +659,7 @@ export function makeClient(o: ImzalaClientOpts): {
     params.set('limit', String(input.limit ?? 20));
     const res = await fetchFn(`${baseUrl}/api/v1/timestamps?${params.toString()}`, {
       method: 'GET',
-      headers: { 'X-API-Key': apiKey },
+      headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
     });
     if (!res.ok) throw await parseErrorBody(res, res.status);
     const body = await res.json() as { success: boolean; data: TimestampListResult };
@@ -664,7 +669,7 @@ export function makeClient(o: ImzalaClientOpts): {
   async function getDemandTimeline(demandId: string): Promise<TimelineResult> {
     const res = await fetchFn(`${baseUrl}/api/v1/demands/${encodeURIComponent(demandId)}/timeline`, {
       method: 'GET',
-      headers: { 'X-API-Key': apiKey },
+      headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
     });
     if (!res.ok) throw await parseErrorBody(res, res.status);
     const body = await res.json() as { success: boolean; data: TimelineResult };
@@ -678,7 +683,7 @@ export function makeClient(o: ImzalaClientOpts): {
   // defensively (non-JSON body must still map to ImzalaApiError, not throw a
   // raw SyntaxError) — mirrors parseErrorBody's robustness.
   async function bulkCreateDemands(input: BulkCreateDemandsInput, workspaceId?: string): Promise<BulkResult> {
-    const headers: Record<string, string> = { 'X-API-Key': apiKey, 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = { 'X-API-Key': apiKey, 'Content-Type': 'application/json', 'User-Agent': USER_AGENT };
     if (workspaceId) headers['X-Workspace-Id'] = workspaceId;
     const res = await fetchFn(`${baseUrl}/api/v1/demands/bulk`, {
       method: 'POST',

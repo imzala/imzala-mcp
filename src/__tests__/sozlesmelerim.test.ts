@@ -21,7 +21,7 @@ describe('listDemands', () => {
     await c.listDemands();
     const [url, opts] = fetchFn.mock.calls[0];
     expect(url).toBe('https://api-prd.imzala.org/api/v1/demands?page=1&limit=20');
-    expect(opts).toEqual({ method: 'GET', headers: { 'X-API-Key': 'imz_x' } });
+    expect(opts).toEqual({ method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.8.0' } });
   });
 
   test('threads status + q + page + limit into the query string', async () => {

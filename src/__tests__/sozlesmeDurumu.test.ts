@@ -27,7 +27,7 @@ describe('getDemand', () => {
     const res = await c.getDemand('dem_1');
     expect(fetchFn).toHaveBeenCalledWith(
       'https://api-prd.imzala.org/api/v1/demands/dem_1',
-      { method: 'GET', headers: { 'X-API-Key': 'imz_x' } },
+      { method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.8.0' } },
     );
     expect(res.title).toBe('Kira Sözleşmesi');
     expect(res.parties).toHaveLength(2);
