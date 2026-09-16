@@ -189,7 +189,7 @@ Toplam: 2 (sayfa 1, sayfa boyutu 20)
 
 ### `sablon_detay`
 
-Bir şablonun detayını gösterir: taraflar ve doldurulabilir değişkenler. Şablondan sözleşme oluşturmadan önce hangi değişkenlerin gerektiğini öğrenmek için kullanılır.
+Bir şablonun detayını gösterir: taraflar, doldurulabilir değişkenler ve (varsa) zarftaki belgeler. Şablondan sözleşme oluşturmadan önce hangi değişkenlerin gerektiğini ve hangi belgelerin gönderileceğini öğrenmek için kullanılır. Belge kimlikleri, sözleşme oluştururken `documents.include` / `documents.exclude` ile belge seçmek için gerekir.
 
 **Girdiler:**
 
@@ -208,10 +208,16 @@ Taraflar:
 - Kiraya Veren (sıra 1), zorunlu
 - Kiracı (sıra 2), zorunlu
 
+Belgeler (sözleşme oluştururken documents.include / documents.exclude ile seçilir):
+- 1. Kira Sözleşmesi [doc_1], tür: CONTRACT, zorunlu, imza gerekir, varsayılan: gönderilir, atanan roller (template_party_id): tp_1, tp_2
+- 2. Aydınlatma Metni [doc_2], tür: KVKK_NOTICE, imza gerekmez, varsayılan: gönderilmez, atanan roller (template_party_id): atanmış rol yok
+
 Doldurulabilir değişkenler (sözleşme oluştururken kullanılır):
 - signer.full_name (İmzalayan Ad Soyad), tip: text, zorunlu
 - contract.start_date (Sözleşme Başlangıç Tarihi), tip: date, zorunlu, otomatik kaynak: current.date
 ```
+
+> Belge bölümü yalnız şablonun zarf yapısı hazırsa görünür. Şablon kopyalandığında (panelden "Kopyala" ya da sözleşmeden şablon oluşturma) belge kimlikleri YENİDİR; kopyanın kimliklerini bu araçla yeniden okuyun.
 
 ---
 
@@ -247,7 +253,7 @@ JVBERi0xLjcKJ...
 
 ### `sablondan_sozlesme_olustur`
 
-Bir şablondan yeni sözleşme oluşturur. **1 kredi harcar ve geri alınamaz.** Varsayılan olarak (`gonder` verilmez veya `false`) yalnızca sözleşmeyi oluşturur, taraflara herhangi bir mesaj GÖNDERMEZ; imza linklerini kendiniz iletirsiniz. `gonder: true` verirseniz taraflara hemen gerçek SMS ve e-posta daveti gönderilir.
+Bir şablondan yeni sözleşme oluşturur. **Kredi harcar ve geri alınamaz:** tek belgeli şablonda 1 kredi; çok belgeli zarfta maliyet imzacı başına o imzacıya atanan belge sayısına göre artar (belge sayısı arttıkça kademeli indirim uygulanır). Varsayılan olarak (`gonder` verilmez veya `false`) yalnızca sözleşmeyi oluşturur, taraflara herhangi bir mesaj GÖNDERMEZ; imza linklerini kendiniz iletirsiniz. `gonder: true` verirseniz taraflara hemen gerçek SMS ve e-posta daveti gönderilir.
 
 **Girdiler:**
 
@@ -256,6 +262,7 @@ Bir şablondan yeni sözleşme oluşturur. **1 kredi harcar ve geri alınamaz.**
 | `template_id` | `string` | Evet | Sözleşmenin oluşturulacağı şablonun kimliği |
 | `parties` | `array` | Evet | Taraflar. Her öğe: `template_party_id` (sablon_detay ile öğrenilir) + `first_name` + `last_name` + (`email` veya `phone`) + isteğe bağlı `variables` |
 | `variables` | `object` | Hayir | Şablon geneli değişkenler (slug: değer) |
+| `documents` | `object` | Hayir | Bu sözleşmede gönderilecek belgeleri seçer: `include` (varsayılanda gönderilmeyeni ekler) ve/veya `exclude` (varsayılanda gönderileni çıkarır), liste başına en fazla 20 belge kimliği. Verilmezse şablonun varsayılan belge kümesi gider |
 | `gonder` | `boolean` | Hayir | `true` verilirse taraflara HEMEN gerçek SMS ve e-posta daveti gönderilir. Varsayılan `false`: sadece oluşturur, mesaj göndermez |
 | `idempotency_key` | `string` | Hayir | Sunucu tarafı destek eklendiğinde ayni istegin tekrarini onler (şu an ileriye donuk, henuz aktif koruma saglamaz) |
 
@@ -264,7 +271,7 @@ Bir şablondan yeni sözleşme oluşturur. **1 kredi harcar ve geri alınamaz.**
 ```
 Sözleşme oluşturuldu: Kira Sözleşmesi 2026 [dem_789]
 Durum: Bekliyor
-1 kredi harcandı.
+Kredi harcandı: tek belgeli şablonda 1 kredi, çok belgeli zarfta imzacı başına atanan belge sayısına göre daha fazla (kademeli indirimli).
 
 Taraflar:
 - Ahmet Yilmaz
@@ -272,6 +279,10 @@ Taraflar:
 Davet gönderilmedi. Taraflara imza daveti göndermek için gonder: true kullanın, hatirlatma_gonder aracıyla gönderin, ya da dashboard'daki sözleşme sayfasından davet edin.
 Sonuç sayfası: https://e.imzala.org/sonuc/dem_789
 ```
+
+**Belge seçimi (çok belgeli zarf):** Çıkarılan belge bu imza sürecine eklenmez: imzacıya gösterilmez, imzalı PDF'te ve tamamlanma sertifikasında yer almaz, kredi hesabına girmez. Sonuçta en az bir belge kalmalı ve eşlediğiniz her role en az bir belge düşmelidir. Mevzuat gereği karşı tarafa verilmesi gereken belgeleri (ör. ön bilgilendirme formu, aydınlatma metni) başka bir kanaldan vermiyorsanız çıkarmayın; bu belgelerin verilmesi yükümlülüğü sözleşmeyi gönderene aittir.
+
+Belge seçimi hatalarında araç ne yapılacağını söyleyen ayrı mesajlar döner: seçimde şablona ait olmayan ya da iki listede birden geçen kimlik, seçim sonrası belge kalmaması, bir role hiç belge düşmemesi (bu durumda sözleşme ya hiç oluşmaz ya da taslakta kalır, her iki halde de kredi harcanmaz), şablonun belge yapısının henüz hazır olmaması ve ilk belgenin kaynak dosyasının bulunmaması.
 
 > ⚠️ Bu araç **`demands:write`** kapsamı gerektirir. Salt-okunur bir anahtarla (`demands:read` / `templates:read`) çalışmaz, hata döner. Sablon_detay ile hangi `template_party_id` ve değişkenlerin gerektiğini önce öğrenin. Başarısızlıkta bu aracı körü körüne tekrar çağırmayın: her çağrı ayrı bir sözleşme ve ayrı bir kredi harcaması oluşturur (sunucu tarafında idempotent değildir).
 

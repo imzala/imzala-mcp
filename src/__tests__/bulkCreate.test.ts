@@ -74,7 +74,10 @@ test('formatBulkResult — özet, imza-linki SIZMAZ, sonuç-linki görünür, em
   // party name + PUBLIC result page are fine
   expect(out).toContain('Ali Y');
   expect(out).toContain('https://e.imzala.org/sonuc/d1');
-  expect(out).toContain('yetersiz');
+  // Başarısız satır küratörlü metinle basılır; sunucunun ham mesajı ('yetersiz')
+  // yankılanmaz (formatError ile aynı kural).
+  expect(out).toContain('Yetersiz kredi');
+  expect(out).not.toContain('yetersiz');
   expect(out).not.toContain('—');
   // sent=false vs true wording
   expect(out).toContain('Davet gönderilmedi');

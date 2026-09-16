@@ -339,12 +339,19 @@ export interface BulkRow {
 export interface BulkRowResult {
   row_index: number;
   status: 'created' | 'failed';
+  /** On a failed row this is the draft left behind by PARTY_WITHOUT_DOCUMENTS form (c). */
   demand_id?: string;
   signing_urls?: Array<{ first_name?: string; last_name?: string; signing_url: string }>;
   result_url?: string;
   dispatched?: number;
   error?: string;
   message?: string;
+  /** error=INVALID_DOCUMENT_SELECTION: reason + the ids the caller sent. */
+  details?: ImzalaApiErrorDetails;
+  /** error=PARTY_WITHOUT_DOCUMENTS, row NOT created. */
+  template_party_ids?: string[];
+  /** error=PARTY_WITHOUT_DOCUMENTS, row created then demoted to a draft. */
+  party_ids?: string[];
 }
 export interface BulkResult {
   template_id: string;
@@ -369,27 +376,56 @@ export interface ImzalaApiErrorDetails {
   document_ids?: string[];
 }
 
+/**
+ * The structured extras a 1.8.17 error body can carry. Shared by
+ * ImzalaApiError and the per-row failures of the bulk endpoint, which report
+ * the very same codes and fields inside `results[i]`.
+ */
+export interface ImzalaApiErrorExtras {
+  details?: ImzalaApiErrorDetails;
+  /** 409 PARTY_WITHOUT_DOCUMENTS, forms (a)/(b): nothing was created. */
+  templatePartyIds?: string[];
+  /** 409 PARTY_WITHOUT_DOCUMENTS, form (c): a DRAFT contract DOES exist. */
+  partyIds?: string[];
+  /** `data.id` of the draft left behind by form (c). */
+  demandId?: string;
+  /** `data.status`, e.g. DRAFT_UNDISPATCHED. */
+  demandStatus?: string;
+}
+
 export class ImzalaApiError extends Error {
   /** Present on 400 INVALID_DOCUMENT_SELECTION. */
   public readonly details?: ImzalaApiErrorDetails;
   /**
-   * Present on 409 PARTY_WITHOUT_DOCUMENTS: the template role ids that end up
-   * with no document. These are the caller's own mapping ids
-   * (`party_mapping[].template_party_id`), so they may be named back.
+   * Present on 409 PARTY_WITHOUT_DOCUMENTS forms (a)/(b): the template role ids
+   * that end up with no document, and the contract was NOT created. These are
+   * the caller's own mapping ids (`party_mapping[].template_party_id`), so they
+   * may be named back.
    */
   public readonly templatePartyIds?: string[];
+  /**
+   * Present on 409 PARTY_WITHOUT_DOCUMENTS form (c): the contract WAS created
+   * and demoted to a draft. Distinguishing the two is what keeps a relaying
+   * model from "safely" retrying and producing a second draft.
+   */
+  public readonly partyIds?: string[];
+  public readonly demandId?: string;
+  public readonly demandStatus?: string;
 
   constructor(
     public readonly status: number,
     public readonly code: string | undefined,
     message: string,
     // Additive 4th argument: every pre-existing 3-argument call site keeps working.
-    extra?: { details?: ImzalaApiErrorDetails; templatePartyIds?: string[] },
+    extra?: ImzalaApiErrorExtras,
   ) {
     super(message);
     this.name = 'ImzalaApiError';
     this.details = extra?.details;
     this.templatePartyIds = extra?.templatePartyIds;
+    this.partyIds = extra?.partyIds;
+    this.demandId = extra?.demandId;
+    this.demandStatus = extra?.demandStatus;
   }
 }
 
@@ -429,6 +465,16 @@ export function mimeFromFileName(fileName: string): string {
   return EXT_TO_MIME[ext] ?? 'application/octet-stream';
 }
 
+/**
+ * True only when the selection actually says something. `{}`,
+ * `{ include: [] }` and `{ include: [], exclude: [] }` all mean "use the
+ * template default", so they are not serialized.
+ */
+export function hasDocumentSelection(d: DocumentSelectionInput | undefined): d is DocumentSelectionInput {
+  if (d === undefined) return false;
+  return (d.include?.length ?? 0) > 0 || (d.exclude?.length ?? 0) > 0;
+}
+
 async function parseErrorBody(
   res: Response,
   status: number,
@@ -439,10 +485,15 @@ async function parseErrorBody(
       code?: string;
       details?: ImzalaApiErrorDetails;
       template_party_ids?: string[];
+      party_ids?: string[];
+      data?: { id?: string; status?: string };
     };
     return new ImzalaApiError(status, body.code, body.error ?? `HTTP ${status}`, {
       details: body.details,
       templatePartyIds: body.template_party_ids,
+      partyIds: body.party_ids,
+      demandId: body.data?.id,
+      demandStatus: body.data?.status,
     });
   } catch {
     return new ImzalaApiError(status, undefined, `HTTP ${status}`);
@@ -610,7 +661,9 @@ export function makeClient(o: ImzalaClientOpts): {
     if (input.variables !== undefined) body.variables = input.variables;
     // Only serialized when the caller actually selected documents: a call
     // without a selection stays byte-identical to the pre-1.8.17 payload.
-    if (input.documents !== undefined) body.documents = input.documents;
+    // An empty selection ({} or two empty lists) is the same as "no selection":
+    // dropping it keeps the payload byte-identical to a call without the field.
+    if (hasDocumentSelection(input.documents)) body.documents = input.documents;
     // DEFAULT create-only: suppress the backend's send-immediately behavior.
     // Only when the caller explicitly opts in (send:true) do we omit the flag
     // so the API's default (send SMS+email to every party) takes effect.
@@ -757,10 +810,16 @@ export function makeClient(o: ImzalaClientOpts): {
   async function bulkCreateDemands(input: BulkCreateDemandsInput, workspaceId?: string): Promise<BulkResult> {
     const headers: Record<string, string> = { 'X-API-Key': apiKey, 'Content-Type': 'application/json', 'User-Agent': USER_AGENT };
     if (workspaceId) headers['X-Workspace-Id'] = workspaceId;
+    // Same empty-selection rule as the single-create path, applied per row.
+    const rows = input.rows.map((r) => {
+      if (r.documents === undefined || hasDocumentSelection(r.documents)) return r;
+      const { documents: _dropped, ...rest } = r;
+      return rest;
+    });
     const res = await fetchFn(`${baseUrl}/api/v1/demands/bulk`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(input),
+      body: JSON.stringify({ ...input, rows }),
     });
     let json: { success?: boolean; data?: BulkResult; message?: string; error?: string; code?: string } | undefined;
     try {
@@ -769,10 +828,18 @@ export function makeClient(o: ImzalaClientOpts): {
       // non-JSON body — falls through to the generic HTTP-status error below.
     }
     if (!res.ok || !json?.success) {
-      const bulkBody = json as (typeof json & { details?: ImzalaApiErrorDetails; template_party_ids?: string[] }) | undefined;
+      const bulkBody = json as (typeof json & {
+        details?: ImzalaApiErrorDetails;
+        template_party_ids?: string[];
+        party_ids?: string[];
+        data?: { id?: string; status?: string };
+      }) | undefined;
       throw new ImzalaApiError(res.status, json?.code, json?.message ?? json?.error ?? `HTTP ${res.status}`, {
         details: bulkBody?.details,
         templatePartyIds: bulkBody?.template_party_ids,
+        partyIds: bulkBody?.party_ids,
+        demandId: bulkBody?.data?.id,
+        demandStatus: bulkBody?.data?.status,
       });
     }
     return json.data as BulkResult;

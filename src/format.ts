@@ -1,5 +1,6 @@
 import type { MeResult, TimestampResult, DemandStatusResult, TemplateListResult, TemplateDetailResult, CreateDemandResult, ReminderResult, DemandListResult, CancelDemandResult, DeleteDemandResult, ContactListResult, Contact, TimestampListResult, TimelineResult, ReportsResult, BulkResult } from './client.js';
 import { ImzalaApiError } from './client.js';
+import type { ImzalaApiErrorExtras, BulkRowResult } from './client.js';
 
 /**
  * Formats a MeResult into a human-readable Turkish summary.
@@ -17,6 +18,60 @@ export function formatWhoami(me: MeResult): string {
     `Kalan kredi: ${me.credits.remaining}`,
   ];
   return lines.join('\n');
+}
+
+/**
+ * Curated Turkish message for the four document-selection codes of API 1.8.17,
+ * or null when the code is not one of them.
+ *
+ * SHARED ON PURPOSE: the same codes arrive two ways, as a thrown
+ * ImzalaApiError on the single-create path and as `results[i].error` on the
+ * bulk path. One mapper means the bulk path can never fall back to echoing the
+ * raw backend string.
+ *
+ * SAFETY: no raw backend message is ever echoed. The ids named here are all the
+ * caller's own: document ids they sent, template role ids they mapped, and the
+ * id of their own draft contract.
+ */
+export function formatDocumentSelectionError(
+  code: string | undefined,
+  extras: ImzalaApiErrorExtras = {},
+): string | null {
+  if (code === 'INVALID_DOCUMENT_SELECTION') {
+    const ids = extras.details?.document_ids?.length
+      ? ` İlgili belge kimlikleri: ${extras.details.document_ids.join(', ')}.`
+      : '';
+    switch (extras.details?.reason) {
+      case 'unknown_document':
+        return `Belge seçiminde bu şablona ait olmayan bir kimlik var.${ids} Geçerli belge kimliklerini sablon_detay ile yeniden okuyun; şablon kopyalandığında belge kimlikleri değişir.`;
+      case 'conflict':
+        return `Aynı belge kimliği hem include hem exclude listesinde.${ids} Her kimliği tek listede bırakın.`;
+      case 'empty':
+        return 'Seçim sonucunda gönderilecek belge kalmadı. En az bir belge seçili olmalı: exclude listesini daraltın ya da include ile belge ekleyin. Şablonun belgelerini sablon_detay ile görebilirsiniz.';
+      case 'shape':
+        return 'Belge seçiminin biçimi geçersiz. `documents` yalnızca `include` ve `exclude` listelerini alır, her kimlik metin olmalı ve her liste en fazla 20 kimlik içerebilir. Toplu gönderimde seçim satır başınadır, toplu seçeneklerin içine konulamaz.';
+      default:
+        return `Belge seçimi kabul edilmedi.${ids} Şablonun belgelerini ve kimliklerini sablon_detay ile doğrulayın.`;
+    }
+  }
+  if (code === 'PARTY_WITHOUT_DOCUMENTS') {
+    // Two OUTCOMES behind one code. With template_party_ids nothing was
+    // created. Without them the contract WAS created and demoted to a draft,
+    // so telling the model "oluşturulmadı" there would invite a retry and a
+    // second draft.
+    if (extras.templatePartyIds?.length) {
+      return `Eşlediğiniz taraflardan en az birine imzalayacak belge düşmüyor, bu yüzden sözleşme oluşturulmadı ve kredi harcanmadı. Belgesiz kalan şablon rolleri (template_party_id): ${extras.templatePartyIds.join(', ')}. Belge seçiminizi düzeltip o role en az bir belge bırakın ya da o rolü taraf listesinden çıkarın. Hangi belgenin hangi role atandığını sablon_detay ile görebilirsiniz.`;
+    }
+    const draft = extras.demandId ? ` Taslak sözleşmenin kimliği: ${extras.demandId}.` : '';
+    return `Eşlediğiniz taraflardan en az birine imzalayacak belge düşmüyor. Sözleşme TASLAK olarak oluşturulmuş olabilir; davet gönderilmedi ve kredi harcanmadı.${draft} Bu aracı tekrar ÇAĞIRMAYIN, ikinci bir taslak oluşur: önce sozlesmelerim ya da sozlesme_durumu ile durumu doğrulayın, belge atamalarını panelden düzeltip oradan gönderin.`;
+  }
+  if (code === 'TEMPLATE_DOCUMENTS_NOT_READY') {
+    return 'Şablonun belge yapısı henüz hazır olmadığı için belge seçimi uygulanamadı. Belge seçimi göndermeden (documents alanı olmadan) tekrar deneyin; sorun sürerse destek ekibiyle iletişime geçin.';
+  }
+  if (code === 'DOCUMENT_SOURCE_UNAVAILABLE') {
+    return 'Şablonun ilk belgesini seçim dışı bıraktınız ve kalan ilk belgenin kaynak dosyası yok. İlk belgeyi seçime geri ekleyin ya da panelden o belgeye dosya yükleyin.';
+  }
+  return null;
 }
 
 /**
@@ -62,38 +117,8 @@ export function formatError(e: unknown): string {
       // (never echoes the raw backend string), but does not leak the duplicate id.
       return 'Bu e-posta veya telefona sahip bir kişi bu çalışma alanında zaten var. Yeni kişi oluşturulmadı; mevcut kişiyi kisilerim aracıyla bulabilirsiniz.';
     }
-    if (e.code === 'INVALID_DOCUMENT_SELECTION') {
-      // 1.8.17 belge seçimi: `details.reason` hatanın sınıfını, `details.document_ids`
-      // yalnızca ÇAĞIRANIN kendi gönderdiği kimlikleri taşır (sunucu kimliği
-      // sızdırmaz), bu yüzden kimlikleri geri söylemek güvenlidir.
-      const ids = e.details?.document_ids?.length ? ` İlgili belge kimlikleri: ${e.details.document_ids.join(', ')}.` : '';
-      if (e.details?.reason === 'unknown_document') {
-        return `Belge seçiminde bu şablona ait olmayan bir kimlik var.${ids} Geçerli belge kimliklerini sablon_detay ile yeniden okuyun; şablon kopyalandığında belge kimlikleri değişir.`;
-      }
-      if (e.details?.reason === 'conflict') {
-        return `Aynı belge kimliği hem include hem exclude listesinde.${ids} Her kimliği tek listede bırakın.`;
-      }
-      if (e.details?.reason === 'empty') {
-        return 'Seçim sonucunda gönderilecek belge kalmadı. En az bir belge seçili olmalı: exclude listesini daraltın ya da include ile belge ekleyin. Şablonun belgelerini sablon_detay ile görebilirsiniz.';
-      }
-      if (e.details?.reason === 'shape') {
-        return "Belge seçiminin biçimi geçersiz. `documents` yalnızca `include` ve `exclude` listelerini alır, her kimlik metin olmalı ve her liste en fazla 20 kimlik içerebilir. Toplu gönderimde seçim satır başınadır, toplu seçeneklerin içine konulamaz.";
-      }
-      return `Belge seçimi kabul edilmedi.${ids} Şablonun belgelerini ve kimliklerini sablon_detay ile doğrulayın.`;
-    }
-    if (e.code === 'PARTY_WITHOUT_DOCUMENTS') {
-      // template_party_ids = çağıranın party_mapping'te kendi verdiği rol
-      // kimlikleri; geri söylemek yeni bilgi sızdırmaz ve hangi rolün açıkta
-      // kaldığını göstermeden kullanıcı sorunu düzeltemez.
-      const roles = e.templatePartyIds?.length ? ` Belgesiz kalan şablon rolleri (template_party_id): ${e.templatePartyIds.join(', ')}.` : '';
-      return `Eşlediğiniz taraflardan en az birine imzalayacak belge düşmüyor, bu yüzden sözleşme oluşturulmadı ve kredi harcanmadı.${roles} Belge seçiminizi düzeltip o role en az bir belge bırakın ya da o rolü taraf listesinden çıkarın. Hangi belgenin hangi role atandığını sablon_detay ile görebilirsiniz.`;
-    }
-    if (e.code === 'TEMPLATE_DOCUMENTS_NOT_READY') {
-      return 'Şablonun belge yapısı henüz hazır olmadığı için belge seçimi uygulanamadı. Belge seçimi göndermeden (documents alanı olmadan) tekrar deneyin; sorun sürerse destek ekibiyle iletişime geçin.';
-    }
-    if (e.code === 'DOCUMENT_SOURCE_UNAVAILABLE') {
-      return 'Şablonun ilk belgesini seçim dışı bıraktınız ve kalan ilk belgenin kaynak dosyası yok. İlk belgeyi seçime geri ekleyin ya da panelden o belgeye dosya yükleyin.';
-    }
+    const documentError = formatDocumentSelectionError(e.code, e);
+    if (documentError !== null) return documentError;
     if (e.status === 409) {
       // sozlesme_iptal conflict: the demand is not in a cancellable state
       // (already COMPLETED or already CANCELLED). Curated, non-sensitive.
@@ -274,7 +299,9 @@ export function formatCreateDemand(r: CreateDemandResult, sent: boolean): string
   const lines: string[] = [];
   lines.push(`Sözleşme oluşturuldu: ${r.title} [${r.id}]`);
   lines.push(`Durum: ${r.status === 'PENDING' ? 'Bekliyor' : r.status}`);
-  lines.push(`1 kredi harcandı.`);
+  // Multi-document envelopes cost more than 1 credit (per signer, by assigned
+  // document count, with a tiered discount), so a flat "1 kredi" would understate it.
+  lines.push('Kredi harcandı: tek belgeli şablonda 1 kredi, çok belgeli zarfta imzacı başına atanan belge sayısına göre daha fazla (kademeli indirimli).');
   lines.push('');
   lines.push('Taraflar:');
   // signing_url is a single-access bearer link (/imza/:party_id, no extra
@@ -495,6 +522,26 @@ export function formatDemandTimeline(r: TimelineResult): string {
  * link privately via the dispatched email/SMS. Only the party name and the
  * PUBLIC result page (`result_url` = /sonuc/:demand_id, read-only) are shown.
  */
+/**
+ * Curated message for ONE failed bulk row.
+ *
+ * Reuses formatError so a row error is worded exactly like the same error on
+ * the single-create path, and so the "never echo the raw backend message" rule
+ * holds here too: `results[i].message` comes straight from the server and is
+ * deliberately NOT rendered.
+ */
+export function formatBulkRowError(f: BulkRowResult): string {
+  if (!f.error) return 'Bilinmeyen hata.';
+  // status 0: a row failure has no HTTP status of its own; every branch that
+  // matters for rows matches on the code.
+  return formatError(new ImzalaApiError(0, f.error, '', {
+    details: f.details,
+    templatePartyIds: f.template_party_ids,
+    partyIds: f.party_ids,
+    demandId: f.demand_id,
+  }));
+}
+
 export function formatBulkResult(r: BulkResult, sent: boolean): string {
   const lines: string[] = [`${r.total} sözleşmeden ${r.created}'i oluşturuldu, ${r.failed}'i başarısız.`];
   const created = r.results.filter((x) => x.status === 'created');
@@ -511,7 +558,7 @@ export function formatBulkResult(r: BulkResult, sent: boolean): string {
   const failed = r.results.filter((x) => x.status === 'failed');
   if (failed.length) {
     lines.push('', 'Başarısızlar:');
-    for (const f of failed) lines.push(`  ${f.row_index + 1}. ${f.message ?? f.error ?? 'Bilinmeyen hata'} (${f.error ?? ''})`);
+    for (const f of failed) lines.push(`  ${f.row_index + 1}. ${formatBulkRowError(f)}`);
   }
   lines.push('');
   if (sent) {

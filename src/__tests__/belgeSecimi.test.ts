@@ -1,6 +1,6 @@
 import { describe, test, expect, vi } from 'vitest';
 import { makeClient, ImzalaApiError } from '../client.js';
-import { formatError, formatTemplateDetail } from '../format.js';
+import { formatError, formatTemplateDetail, formatBulkResult } from '../format.js';
 
 const GENERIC_409 = 'Bu işlem sözleşmenin mevcut durumunda yapılamaz';
 
@@ -56,10 +56,22 @@ describe('formatError — document selection codes get their OWN message', () =>
     expect(text).not.toContain('raw backend message');
   });
 
-  test('PARTY_WITHOUT_DOCUMENTS still works when the server omits template_party_ids', () => {
-    const text = formatError(new ImzalaApiError(409, 'PARTY_WITHOUT_DOCUMENTS', 'x'));
+  test('FORM (c): no template_party_ids means the contract WAS created as a draft — warn, do not say "oluşturulmadı"', () => {
+    const text = formatError(new ImzalaApiError(409, 'PARTY_WITHOUT_DOCUMENTS', 'x', { partyIds: ['p1'], demandId: 'dem_9', demandStatus: 'DRAFT_UNDISPATCHED' }));
     expect(text).not.toContain(GENERIC_409);
-    expect(text).toContain('sablon_detay');
+    expect(text).toContain('TASLAK');
+    expect(text).toContain('dem_9');
+    expect(text).toContain('ÇAĞIRMAYIN');
+    expect(text).not.toContain('sözleşme oluşturulmadı');
+  });
+
+  test('FORM (a)/(b) and FORM (c) are different messages', () => {
+    const notCreated = formatError(new ImzalaApiError(409, 'PARTY_WITHOUT_DOCUMENTS', 'x', { templatePartyIds: ['tp2'] }));
+    const draft = formatError(new ImzalaApiError(409, 'PARTY_WITHOUT_DOCUMENTS', 'x', { partyIds: ['p1'] }));
+    expect(notCreated).toContain('sözleşme oluşturulmadı');
+    expect(notCreated).not.toContain('TASLAK');
+    expect(draft).toContain('TASLAK');
+    expect(draft).not.toContain('tp2');
   });
 
   test('TEMPLATE_DOCUMENTS_NOT_READY is not the generic 409 text', () => {
@@ -178,5 +190,62 @@ describe('formatTemplateDetail — documents', () => {
   test('empty documents array says the envelope has no separate documents', () => {
     const out = formatTemplateDetail({ ...DETAIL_BASE, documents: [] } as never);
     expect(out).toContain('zarf belgesi tanımlı değil');
+  });
+});
+
+describe('formatBulkResult — failed rows never echo the server string', () => {
+  const bulk = (row: Record<string, unknown>) => formatBulkResult({
+    template_id: 't1', total: 1, created: 0, failed: 1,
+    results: [{ row_index: 0, status: 'failed', ...row }],
+  } as never, false);
+
+  test('row PARTY_WITHOUT_DOCUMENTS (not created) names the role and drops the raw message', () => {
+    const out = bulk({ error: 'PARTY_WITHOUT_DOCUMENTS', message: 'ham sunucu metni', template_party_ids: ['tp2'] });
+    expect(out).toContain('tp2');
+    expect(out).toContain('oluşturulmadı');
+    expect(out).not.toContain('ham sunucu metni');
+  });
+
+  test('row PARTY_WITHOUT_DOCUMENTS after creation warns about the draft instead of "oluşturulmadı"', () => {
+    const out = bulk({ error: 'PARTY_WITHOUT_DOCUMENTS', message: 'ham', party_ids: ['p1'], demand_id: 'dem_7' });
+    expect(out).toContain('TASLAK');
+    expect(out).toContain('dem_7');
+    expect(out).not.toContain('ham');
+  });
+
+  test('row INVALID_DOCUMENT_SELECTION uses the reason-specific message', () => {
+    const out = bulk({ error: 'INVALID_DOCUMENT_SELECTION', message: 'ham', details: { reason: 'conflict', document_ids: ['doc-3'] } });
+    expect(out).toContain('hem include hem exclude');
+    expect(out).toContain('doc-3');
+    expect(out).not.toContain('ham');
+  });
+
+  test('a row with no error code degrades gracefully', () => {
+    expect(bulk({ message: 'ham' })).toContain('Bilinmeyen hata');
+  });
+});
+
+describe('empty document selection is dropped (byte-identity)', () => {
+  test('documents: {} is not serialized on create', async () => {
+    const fetchFn = okFetch({ success: true, data: CREATED });
+    await client(fetchFn).createDemand({ templateId: 't1', partyMapping: ONE_PARTY, send: false, documents: {} });
+    expect(fetchFn.mock.calls[0][1].body as string).not.toContain('documents');
+  });
+
+  test('documents with two empty lists is not serialized on create', async () => {
+    const fetchFn = okFetch({ success: true, data: CREATED });
+    await client(fetchFn).createDemand({ templateId: 't1', partyMapping: ONE_PARTY, send: false, documents: { include: [], exclude: [] } });
+    expect(fetchFn.mock.calls[0][1].body as string).not.toContain('documents');
+  });
+
+  test('an empty row selection is dropped too, a real one survives', async () => {
+    const fetchFn = okFetch({ success: true, data: { template_id: 't1', total: 2, created: 2, failed: 0, results: [] } }, 200);
+    await client(fetchFn).bulkCreateDemands({
+      template_id: 't1',
+      rows: [{ party_mapping: ONE_PARTY, documents: {} }, { party_mapping: ONE_PARTY, documents: { include: ['doc-2'] } }],
+    });
+    const sent = JSON.parse(fetchFn.mock.calls[0][1].body as string);
+    expect(sent.rows[0].documents).toBeUndefined();
+    expect(sent.rows[1].documents).toEqual({ include: ['doc-2'] });
   });
 });
