@@ -12,7 +12,7 @@ export function registerSablonDetay(server: McpServer, resolveClient: ResolveCli
     'sablon_detay',
     {
       description:
-        'Bir şablonun detayını gösterir: taraflar ve doldurulabilir değişkenler. Şablondan sözleşme oluşturmadan önce hangi değişkenlerin gerektiğini öğrenmek için kullanılır.',
+        'Bir şablonun detayını gösterir: taraflar, doldurulabilir değişkenler ve (varsa) zarftaki belgeler. Şablondan sözleşme oluşturmadan önce hangi değişkenlerin gerektiğini ve hangi belgelerin gönderileceğini öğrenmek için kullanılır. Belge kimlikleri, sözleşme oluştururken `documents.include` / `documents.exclude` ile belge seçmek için gerekir.',
       inputSchema: sablonDetayInputSchema,
     },
     async (args) => {

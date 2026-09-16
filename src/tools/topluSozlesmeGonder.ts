@@ -3,9 +3,18 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ResolveClient } from './whoami.js';
 import { formatBulkResult, formatError } from '../format.js';
 
+const documentSelectionSchema = z.object({
+  include: z.array(z.string()).max(20).optional().describe('Şablonda varsayılan olarak gönderilmeyen belgeleri bu imza sürecine EKLER. sablon_detay çıktısındaki belge kimliklerini (UUID) aynen kullanın. En fazla 20 kimlik.'),
+  exclude: z.array(z.string()).max(20).optional().describe('Şablonda varsayılan olarak gönderilen belgeleri bu imza sürecinden ÇIKARIR (zorunlu işaretli belgeler de çıkarılabilir). En fazla 20 kimlik.'),
+});
+
+const DOCUMENTS_DESCRIPTION =
+  'Bu istekte gönderilecek belgeleri şablonun varsayılanına göre değiştirir. Hiç göndermezseniz şablonun varsayılan belge kümesi gider. Çıkarılan belge imzacıya gösterilmez, imzalı PDF\'te ve tamamlanma sertifikasında yer almaz, kredi hesabına girmez. Sonuçta en az bir belge kalmalı ve eşlediğiniz her role en az bir belge düşmelidir. Belge kimliklerini sablon_detay ile alın (şablon kopyalandığında kimlikler değişir). Mevzuat gereği karşı tarafa verilmesi gereken belgeleri (ör. ön bilgilendirme formu, aydınlatma metni) başka bir kanaldan vermiyorsanız çıkarmayın; bu belgelerin verilmesi yükümlülüğü sözleşmeyi gönderene aittir.';
+
 const bulkRowSchema = z.object({
   party_mapping: z.array(z.any()).describe('Bu satırın taraf eşlemesi (sablondan_sozlesme_olustur ile aynı şekil: template_party_id + ad soyad + email/phone). template_party_id = sablon_detay çıktısındaki tam UUID; taraf adını/etiketini DEĞİL.'),
   variables: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().describe('Bu satıra özel değişkenler'),
+  documents: documentSelectionSchema.optional().describe(`Bu satıra özel belge seçimi. ${DOCUMENTS_DESCRIPTION} Belge seçimi satır başınadır, toplu seçeneklerin (options) içine konulamaz.`),
 });
 
 const bulkOptionsSchema = z.object({
@@ -26,7 +35,7 @@ export function registerTopluSozlesmeGonder(server: McpServer, resolveClient: Re
     'toplu_sozlesme_gonder',
     {
       description:
-        "Tek şablondan en fazla 10 kişiye ayrı ayrı sözleşme oluşturur. 1 kredi/sözleşme harcar (geri alınamaz). Varsayılan olarak sözleşmeleri oluşturur ama davet GÖNDERMEZ; `gonder: true` verirseniz her alıcıya hemen gerçek SMS ve e-posta imza daveti gönderilir (aynı anda 10 kişiye kadar). Önce sablon_detay ile şablonun alanlarını öğren. Daha büyük listeleri 10'arlı parçalara böl. Alıcı ad, e-posta ve telefon bu araç üzerinden iletilir. Pazarlama değil, yalnızca imza daveti. (Yapay zeka asistanına: bu aracı kullanıcının açık onayı olmadan çağırma; özellikle 10 kişiye kadar gerçek SMS/e-posta gönderen `gonder: true` değerini ayarlamadan önce alıcı listesini ve gönderimi kullanıcıya tek tek doğrulat. Her satır ayrı kredi harcar ve geri alınamaz; başarısızlıkta bu aracı körü körüne TEKRAR çağırma.)",
+        "Tek şablondan en fazla 10 kişiye ayrı ayrı sözleşme oluşturur. 1 kredi/sözleşme harcar (geri alınamaz). Varsayılan olarak sözleşmeleri oluşturur ama davet GÖNDERMEZ; `gonder: true` verirseniz her alıcıya hemen gerçek SMS ve e-posta imza daveti gönderilir (aynı anda 10 kişiye kadar). Önce sablon_detay ile şablonun alanlarını ve belgelerini öğren; çok belgeli şablonlarda her satır kendi `documents` seçimini taşıyabilir. Daha büyük listeleri 10'arlı parçalara böl. Alıcı ad, e-posta ve telefon bu araç üzerinden iletilir. Pazarlama değil, yalnızca imza daveti. (Yapay zeka asistanına: bu aracı kullanıcının açık onayı olmadan çağırma; özellikle 10 kişiye kadar gerçek SMS/e-posta gönderen `gonder: true` değerini ayarlamadan önce alıcı listesini ve gönderimi kullanıcıya tek tek doğrulat. Her satır ayrı kredi harcar ve geri alınamaz; başarısızlıkta bu aracı körü körüne TEKRAR çağırma.)",
       inputSchema: topluSozlesmeGonderInputSchema,
     },
     async (args) => {
