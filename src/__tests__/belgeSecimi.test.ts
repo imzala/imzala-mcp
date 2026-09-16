@@ -249,3 +249,53 @@ describe('empty document selection is dropped (byte-identity)', () => {
     expect(sent.rows[1].documents).toEqual({ include: ['doc-2'] });
   });
 });
+
+describe('creation-outcome codes on failed bulk rows', () => {
+  const bulkRow = (row: Record<string, unknown>) => formatBulkResult({
+    template_id: 't1', total: 1, created: 0, failed: 1,
+    results: [{ row_index: 0, status: 'failed', ...row }],
+  } as never, false);
+
+  test('RECONCILE_FAILED says the draft exists and tells the model NOT to retry', () => {
+    const out = bulkRow({ error: 'RECONCILE_FAILED', message: 'ham sunucu metni', demand_id: 'dem_5' });
+    expect(out).toContain('TASLAK');
+    expect(out).toContain('dem_5');
+    expect(out).toContain('ÇAĞIRMAYIN');
+    expect(out).not.toContain('ham sunucu metni');
+    expect(out).not.toContain('kod: RECONCILE_FAILED');
+  });
+
+  test('RECONCILE_FAILED without demand_id keeps the warning, just cannot name the draft', () => {
+    const out = bulkRow({ error: 'RECONCILE_FAILED' });
+    expect(out).toContain('TASLAK');
+    expect(out).toContain('ÇAĞIRMAYIN');
+  });
+
+  test('CREATE_FAILED gets its own message and does NOT invent a draft', () => {
+    const out = bulkRow({ error: 'CREATE_FAILED', message: 'ham sunucu metni' });
+    expect(out).toContain('oluşturulamadı');
+    expect(out).toContain('sozlesmelerim');
+    expect(out).not.toContain('TASLAK');
+    expect(out).not.toContain('ham sunucu metni');
+    expect(out).not.toContain('kod: CREATE_FAILED');
+  });
+
+  test('VALIDATION points at the checkable fields without echoing the server text', () => {
+    const out = bulkRow({ error: 'VALIDATION', message: 'party_mapping[0].email gecersiz' });
+    expect(out).toContain('doğrulamadan geçmedi');
+    expect(out).toContain('template_party_id');
+    expect(out).not.toContain('party_mapping[0].email gecersiz');
+  });
+
+  test('the three codes produce three different messages', () => {
+    const texts = ['RECONCILE_FAILED', 'CREATE_FAILED', 'VALIDATION'].map((error) => bulkRow({ error }));
+    expect(new Set(texts).size).toBe(3);
+  });
+
+  test('the same codes are worded identically on the single-create path', () => {
+    const single = formatError(new ImzalaApiError(500, 'RECONCILE_FAILED', 'ham', { demandId: 'dem_5' }));
+    expect(single).toContain('TASLAK');
+    expect(single).toContain('dem_5');
+    expect(single).not.toContain('ham');
+  });
+});

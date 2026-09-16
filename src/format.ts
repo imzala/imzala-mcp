@@ -119,6 +119,23 @@ export function formatError(e: unknown): string {
     }
     const documentError = formatDocumentSelectionError(e.code, e);
     if (documentError !== null) return documentError;
+    if (e.code === 'RECONCILE_FAILED') {
+      // Same failure class as PARTY_WITHOUT_DOCUMENTS form (c): the contract
+      // IS created and demoted to a draft. Saying only "İşlem başarısız" would
+      // read as "nothing happened" and invite a retry that leaves a second draft.
+      const draft = e.demandId ? ` Taslak sözleşmenin kimliği: ${e.demandId}.` : '';
+      return `Kredi mutabakatı beklenmedik bir hatayla düştü. Sözleşme TASLAK olarak oluşturuldu, davet gönderilmedi.${draft} Bu aracı körü körüne tekrar ÇAĞIRMAYIN, ikinci bir taslak oluşur: önce sozlesmelerim ya da sozlesme_durumu ile taslağı bulun, sonra panelden gönderin.`;
+    }
+    if (e.code === 'CREATE_FAILED') {
+      // The contract says nothing about what survives on this code, so this
+      // message claims NEITHER that a draft exists NOR that nothing was created.
+      return 'Bu sözleşme oluşturulamadı. Taraf ve değişken bilgilerini sablon_detay çıktısıyla karşılaştırın. Tekrar denemeden önce sozlesmelerim ile bu iş için bir kayıt oluşup oluşmadığını doğrulayın; körü körüne tekrar çağırmak ikinci bir sözleşme oluşturabilir.';
+    }
+    if (e.code === 'VALIDATION') {
+      // The rejected field name lives only in the server's free-text message,
+      // which is never echoed; point at the fields a caller can actually check.
+      return 'Gönderilen veri doğrulamadan geçmedi. Taraf başına template_party_id, ad, soyad ve e-posta ya da telefon alanlarının dolu ve geçerli olduğunu, değişken değerlerinin metin, sayı, doğru/yanlış ya da boş olduğunu kontrol edin; beklenen alanları sablon_detay gösterir.';
+    }
     if (e.status === 409) {
       // sozlesme_iptal conflict: the demand is not in a cancellable state
       // (already COMPLETED or already CANCELLED). Curated, non-sensitive.
