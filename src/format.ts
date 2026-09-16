@@ -124,7 +124,7 @@ export function formatError(e: unknown): string {
       // IS created and demoted to a draft. Saying only "İşlem başarısız" would
       // read as "nothing happened" and invite a retry that leaves a second draft.
       const draft = e.demandId ? ` Taslak sözleşmenin kimliği: ${e.demandId}.` : '';
-      return `Kredi mutabakatı beklenmedik bir hatayla düştü. Sözleşme TASLAK olarak oluşturuldu, davet gönderilmedi.${draft} Bu aracı körü körüne tekrar ÇAĞIRMAYIN, ikinci bir taslak oluşur: önce sozlesmelerim ya da sozlesme_durumu ile taslağı bulun, sonra panelden gönderin.`;
+      return `Kredi mutabakatı beklenmedik bir hatayla düştü. Sözleşme TASLAK olarak oluşturuldu, davet gönderilmedi.${draft} Bu aracı idempotency_key vermeden tekrar ÇAĞIRMAYIN, ikinci bir taslak oluşur: önce sozlesmelerim ya da sozlesme_durumu ile taslağı bulun, sonra panelden gönderin. Aynı idempotency_key ile tekrar denemek güvenlidir.`;
     }
     if (e.code === 'CREATE_FAILED') {
       // The contract says nothing about what survives on this code, so this
