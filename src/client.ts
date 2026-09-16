@@ -99,6 +99,25 @@ export interface TemplateVariable {
   default_source: string | null;
 }
 
+/**
+ * A document inside a template's envelope. `id` is what the caller passes back
+ * in `documents.include` / `documents.exclude` when creating a contract.
+ *
+ * NOTE: copying a template (panel "Kopyala", or "save as template" from a
+ * contract) produces NEW document ids, so the ids must be re-read from
+ * GET /templates/{id} for every template. Renaming/reordering keeps the id.
+ */
+export interface TemplateDocumentSummary {
+  id: string;
+  order: number;
+  title: string;
+  doc_kind: string;
+  is_required: boolean;
+  signature_required: boolean;
+  default_included: boolean;
+  assigned_template_party_ids: string[];
+}
+
 export interface TemplateDetailResult {
   id: string;
   name: string;
@@ -108,6 +127,18 @@ export interface TemplateDetailResult {
   parties: TemplatePartyBrief[];
   pages_count: number;
   variables: TemplateVariable[];
+  /** Absent on API deployments older than 1.8.17 (tolerant read). */
+  documents?: TemplateDocumentSummary[];
+}
+
+/**
+ * Per-request override of the template's default document set. Omitted =
+ * the template's `default_included` documents are sent. Max 20 ids per list
+ * (the API rejects more with INVALID_DOCUMENT_SELECTION / reason `shape`).
+ */
+export interface DocumentSelectionInput {
+  include?: string[];
+  exclude?: string[];
 }
 
 export interface CreateDemandPartyMapping {
@@ -124,6 +155,8 @@ export interface CreateDemandInput {
   variables?: Record<string, string | number | boolean | null>;
   /** false (default) = create-only, no messages. true = backend sends SMS+email immediately. */
   send: boolean;
+  /** Optional per-request document selection; passed to the API unchanged. */
+  documents?: DocumentSelectionInput;
   idempotencyKey?: string;
 }
 export interface CreateDemandSigningUrl {
@@ -297,6 +330,11 @@ export interface ListTimestampsInput {
 export interface BulkRow {
   party_mapping: any[];
   variables?: Record<string, string | number | boolean | null>;
+  /**
+   * Document selection is PER ROW on the bulk endpoint. Sending it at batch
+   * level (`options.documents`) is rejected with INVALID_DOCUMENT_SELECTION.
+   */
+  documents?: DocumentSelectionInput;
 }
 export interface BulkRowResult {
   row_index: number;
@@ -321,14 +359,37 @@ export interface BulkCreateDemandsInput {
   rows: BulkRow[];
 }
 
+/**
+ * Structured `details` payload carried by document-selection errors
+ * (400 INVALID_DOCUMENT_SELECTION). `document_ids` only ever contains ids the
+ * CALLER sent, so echoing them back leaks nothing.
+ */
+export interface ImzalaApiErrorDetails {
+  reason?: string;
+  document_ids?: string[];
+}
+
 export class ImzalaApiError extends Error {
+  /** Present on 400 INVALID_DOCUMENT_SELECTION. */
+  public readonly details?: ImzalaApiErrorDetails;
+  /**
+   * Present on 409 PARTY_WITHOUT_DOCUMENTS: the template role ids that end up
+   * with no document. These are the caller's own mapping ids
+   * (`party_mapping[].template_party_id`), so they may be named back.
+   */
+  public readonly templatePartyIds?: string[];
+
   constructor(
     public readonly status: number,
     public readonly code: string | undefined,
     message: string,
+    // Additive 4th argument: every pre-existing 3-argument call site keeps working.
+    extra?: { details?: ImzalaApiErrorDetails; templatePartyIds?: string[] },
   ) {
     super(message);
     this.name = 'ImzalaApiError';
+    this.details = extra?.details;
+    this.templatePartyIds = extra?.templatePartyIds;
   }
 }
 
@@ -373,8 +434,16 @@ async function parseErrorBody(
   status: number,
 ): Promise<ImzalaApiError> {
   try {
-    const body = await res.json() as { error?: string; code?: string };
-    return new ImzalaApiError(status, body.code, body.error ?? `HTTP ${status}`);
+    const body = await res.json() as {
+      error?: string;
+      code?: string;
+      details?: ImzalaApiErrorDetails;
+      template_party_ids?: string[];
+    };
+    return new ImzalaApiError(status, body.code, body.error ?? `HTTP ${status}`, {
+      details: body.details,
+      templatePartyIds: body.template_party_ids,
+    });
   } catch {
     return new ImzalaApiError(status, undefined, `HTTP ${status}`);
   }
@@ -539,6 +608,9 @@ export function makeClient(o: ImzalaClientOpts): {
       party_mapping: input.partyMapping,
     };
     if (input.variables !== undefined) body.variables = input.variables;
+    // Only serialized when the caller actually selected documents: a call
+    // without a selection stays byte-identical to the pre-1.8.17 payload.
+    if (input.documents !== undefined) body.documents = input.documents;
     // DEFAULT create-only: suppress the backend's send-immediately behavior.
     // Only when the caller explicitly opts in (send:true) do we omit the flag
     // so the API's default (send SMS+email to every party) takes effect.
@@ -697,7 +769,11 @@ export function makeClient(o: ImzalaClientOpts): {
       // non-JSON body — falls through to the generic HTTP-status error below.
     }
     if (!res.ok || !json?.success) {
-      throw new ImzalaApiError(res.status, json?.code, json?.message ?? json?.error ?? `HTTP ${res.status}`);
+      const bulkBody = json as (typeof json & { details?: ImzalaApiErrorDetails; template_party_ids?: string[] }) | undefined;
+      throw new ImzalaApiError(res.status, json?.code, json?.message ?? json?.error ?? `HTTP ${res.status}`, {
+        details: bulkBody?.details,
+        templatePartyIds: bulkBody?.template_party_ids,
+      });
     }
     return json.data as BulkResult;
   }

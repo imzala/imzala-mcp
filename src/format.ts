@@ -62,6 +62,38 @@ export function formatError(e: unknown): string {
       // (never echoes the raw backend string), but does not leak the duplicate id.
       return 'Bu e-posta veya telefona sahip bir kişi bu çalışma alanında zaten var. Yeni kişi oluşturulmadı; mevcut kişiyi kisilerim aracıyla bulabilirsiniz.';
     }
+    if (e.code === 'INVALID_DOCUMENT_SELECTION') {
+      // 1.8.17 belge seçimi: `details.reason` hatanın sınıfını, `details.document_ids`
+      // yalnızca ÇAĞIRANIN kendi gönderdiği kimlikleri taşır (sunucu kimliği
+      // sızdırmaz), bu yüzden kimlikleri geri söylemek güvenlidir.
+      const ids = e.details?.document_ids?.length ? ` İlgili belge kimlikleri: ${e.details.document_ids.join(', ')}.` : '';
+      if (e.details?.reason === 'unknown_document') {
+        return `Belge seçiminde bu şablona ait olmayan bir kimlik var.${ids} Geçerli belge kimliklerini sablon_detay ile yeniden okuyun; şablon kopyalandığında belge kimlikleri değişir.`;
+      }
+      if (e.details?.reason === 'conflict') {
+        return `Aynı belge kimliği hem include hem exclude listesinde.${ids} Her kimliği tek listede bırakın.`;
+      }
+      if (e.details?.reason === 'empty') {
+        return 'Seçim sonucunda gönderilecek belge kalmadı. En az bir belge seçili olmalı: exclude listesini daraltın ya da include ile belge ekleyin. Şablonun belgelerini sablon_detay ile görebilirsiniz.';
+      }
+      if (e.details?.reason === 'shape') {
+        return "Belge seçiminin biçimi geçersiz. `documents` yalnızca `include` ve `exclude` listelerini alır, her kimlik metin olmalı ve her liste en fazla 20 kimlik içerebilir. Toplu gönderimde seçim satır başınadır, toplu seçeneklerin içine konulamaz.";
+      }
+      return `Belge seçimi kabul edilmedi.${ids} Şablonun belgelerini ve kimliklerini sablon_detay ile doğrulayın.`;
+    }
+    if (e.code === 'PARTY_WITHOUT_DOCUMENTS') {
+      // template_party_ids = çağıranın party_mapping'te kendi verdiği rol
+      // kimlikleri; geri söylemek yeni bilgi sızdırmaz ve hangi rolün açıkta
+      // kaldığını göstermeden kullanıcı sorunu düzeltemez.
+      const roles = e.templatePartyIds?.length ? ` Belgesiz kalan şablon rolleri (template_party_id): ${e.templatePartyIds.join(', ')}.` : '';
+      return `Eşlediğiniz taraflardan en az birine imzalayacak belge düşmüyor, bu yüzden sözleşme oluşturulmadı ve kredi harcanmadı.${roles} Belge seçiminizi düzeltip o role en az bir belge bırakın ya da o rolü taraf listesinden çıkarın. Hangi belgenin hangi role atandığını sablon_detay ile görebilirsiniz.`;
+    }
+    if (e.code === 'TEMPLATE_DOCUMENTS_NOT_READY') {
+      return 'Şablonun belge yapısı henüz hazır olmadığı için belge seçimi uygulanamadı. Belge seçimi göndermeden (documents alanı olmadan) tekrar deneyin; sorun sürerse destek ekibiyle iletişime geçin.';
+    }
+    if (e.code === 'DOCUMENT_SOURCE_UNAVAILABLE') {
+      return 'Şablonun ilk belgesini seçim dışı bıraktınız ve kalan ilk belgenin kaynak dosyası yok. İlk belgeyi seçime geri ekleyin ya da panelden o belgeye dosya yükleyin.';
+    }
     if (e.status === 409) {
       // sozlesme_iptal conflict: the demand is not in a cancellable state
       // (already COMPLETED or already CANCELLED). Curated, non-sensitive.
@@ -195,6 +227,25 @@ export function formatTemplateDetail(t: TemplateDetailResult): string {
     lines.push(`- ${p.label} (sıra ${p.order})${p.is_required ? ', zorunlu' : ''} — template_party_id: ${p.id}`);
   }
   lines.push('');
+  // Tolerant read: `documents` is absent on API deployments older than 1.8.17,
+  // and an empty array means the template's envelope is not built yet.
+  if (t.documents !== undefined) {
+    if (t.documents.length === 0) {
+      lines.push('Bu şablonda ayrı zarf belgesi tanımlı değil.');
+    } else {
+      lines.push('Belgeler (sözleşme oluştururken documents.include / documents.exclude ile seçilir):');
+      for (const d of t.documents) {
+        const req = d.is_required ? ', zorunlu' : '';
+        const sig = d.signature_required ? ', imza gerekir' : ', imza gerekmez';
+        const def = d.default_included ? ', varsayılan: gönderilir' : ', varsayılan: gönderilmez';
+        const roles = d.assigned_template_party_ids.length
+          ? d.assigned_template_party_ids.join(', ')
+          : 'atanmış rol yok';
+        lines.push(`- ${d.order}. ${d.title} [${d.id}], tür: ${d.doc_kind}${req}${sig}${def}, atanan roller (template_party_id): ${roles}`);
+      }
+    }
+    lines.push('');
+  }
   if (t.variables.length === 0) {
     lines.push('Bu şablonda doldurulabilir değişken yok.');
   } else {
