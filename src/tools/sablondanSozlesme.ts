@@ -10,7 +10,7 @@ export const partySchema = z.object({
   email: z.string().optional(),
   phone: z.string().optional(),
   variables: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().describe('Bu tarafa özel değişkenler'),
-  locale: z.enum(['tr', 'en']).optional().describe('İmzacının dijital imza sayfası ve bildirim dili. Boş bırakılırsa şablondaki rolün varsayılan dili, o da yoksa imzacının tarayıcı dili kullanılır; bu durumda bildirimler Türkçe gider.'),
+  locale: z.enum(['tr', 'en']).optional().describe("İmza sayfasının başlangıç dili (tr veya en); imzacı sayfada değiştirebilir. Boş bırakılırsa şablondaki rolün varsayılan dili, o da yoksa tarayıcı dili İngilizce ise İngilizce, aksi halde Türkçe kullanılır. Bildirimler (e-posta, SMS) atanan dilde gider; dil atanmamışsa Türkçe gider. WhatsApp'ta İngilizce için kurumun onaylı İngilizce şablonu gerekir."),
 });
 
 export const sablondanSozlesmeInputSchema = {

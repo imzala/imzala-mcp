@@ -254,7 +254,7 @@ Bir şablondan yeni sözleşme oluşturur. **1 kredi harcar ve geri alınamaz.**
 | Alan | Tip | Zorunlu | Aciklama |
 |------|-----|---------|----------|
 | `template_id` | `string` | Evet | Sözleşmenin oluşturulacağı şablonun kimliği |
-| `parties` | `array` | Evet | Taraflar. Her öğe: `template_party_id` (sablon_detay ile öğrenilir) + `first_name` + `last_name` + (`email` veya `phone`) + isteğe bağlı `variables` + isteğe bağlı `locale` (`tr` veya `en`: imzacının dijital imza sayfası ve bildirim dili; boş bırakılırsa şablonun rol varsayılanı, o da yoksa tarayıcı dili, bildirimler Türkçe) |
+| `parties` | `array` | Evet | Taraflar. Her öğe: `template_party_id` (sablon_detay ile öğrenilir) + `first_name` + `last_name` + (`email` veya `phone`) + isteğe bağlı `variables` + isteğe bağlı `locale` (`tr` veya `en`: imza sayfasının başlangıç dili, imzacı sayfada değiştirebilir; boş bırakılırsa şablonun rol varsayılanı, o da yoksa tarayıcı dili İngilizce ise İngilizce, aksi halde Türkçe. Bildirimler (e-posta, SMS) atanan dilde, dil atanmamışsa Türkçe gider) |
 | `variables` | `object` | Hayir | Şablon geneli değişkenler (slug: değer) |
 | `gonder` | `boolean` | Hayir | `true` verilirse taraflara HEMEN gerçek SMS ve e-posta daveti gönderilir. Varsayılan `false`: sadece oluşturur, mesaj göndermez |
 | `idempotency_key` | `string` | Hayir | Sunucu tarafı destek eklendiğinde ayni istegin tekrarini onler (şu an ileriye donuk, henuz aktif koruma saglamaz) |
@@ -274,6 +274,21 @@ Sonuç sayfası: https://e.imzala.org/sonuc/dem_789
 ```
 
 > ⚠️ Bu araç **`demands:write`** kapsamı gerektirir. Salt-okunur bir anahtarla (`demands:read` / `templates:read`) çalışmaz, hata döner. Sablon_detay ile hangi `template_party_id` ve değişkenlerin gerektiğini önce öğrenin. Başarısızlıkta bu aracı körü körüne tekrar çağırmayın: her çağrı ayrı bir sözleşme ve ayrı bir kredi harcaması oluşturur (sunucu tarafında idempotent değildir).
+
+---
+
+### `toplu_sozlesme_gonder`
+
+Tek şablondan en fazla 10 kişiye ayrı ayrı sözleşme oluşturur. **Her satır 1 kredi harcar ve geri alınamaz.** Varsayılan olarak davet GÖNDERMEZ; `gonder: true` ile her alıcıya hemen gerçek SMS ve e-posta daveti gider.
+
+**Girdiler:**
+
+| Alan | Tip | Zorunlu | Aciklama |
+|------|-----|---------|----------|
+| `template_id` | `string` | Evet | Sözleşmelerin oluşturulacağı şablonun kimliği |
+| `rows` | `array` | Evet | En fazla 10 satır; her satır ayrı sözleşme. Satır: `party_mapping` (öğeleri `sablondan_sozlesme_olustur` `parties` ile aynı şema, isteğe bağlı `locale` dahil) + isteğe bağlı `variables` |
+| `gonder` | `boolean` | Hayir | `true` verilirse her alıcıya HEMEN gerçek SMS ve e-posta daveti gönderilir. Varsayılan `false` |
+| `options` | `object` | Hayir | `ordered`, `sms_content`, `language` |
 
 ---
 

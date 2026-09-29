@@ -125,3 +125,35 @@ describe('toplu_sozlesme_gonder tool description', () => {
     expect(desc).not.toContain('—');
   });
 });
+
+describe('toplu_sozlesme_gonder rows[].party_mapping[].locale', () => {
+  const schema = z.object(topluSozlesmeGonderInputSchema);
+  const party = { template_party_id: 'tp1', first_name: 'Ayşe', last_name: 'Yılmaz', email: 'ayse@example.com' };
+  const rowWith = (p: Record<string, unknown>) => ({ template_id: 't1', rows: [{ party_mapping: [p] }] });
+
+  test('locale opsiyonel (geriye uyum), tr/en kabul, diğer değer red', () => {
+    expect(schema.safeParse(rowWith(party)).success).toBe(true);
+    expect(schema.safeParse(rowWith({ ...party, locale: 'en' })).success).toBe(true);
+    expect(schema.safeParse(rowWith({ ...party, locale: 'de' })).success).toBe(false);
+  });
+
+  test('tek-sözleşme aracıyla aynı taraf şeması: template_party_id zorunlu', () => {
+    const { template_party_id: _omit, ...noRole } = party;
+    expect(schema.safeParse(rowWith(noRole)).success).toBe(false);
+  });
+
+  test("locale ve API'nin diğer taraf alanları gövdeye aynen iletilir", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, data: { template_id: 't1', total: 1, created: 1, failed: 0, results: [] } }),
+    });
+    const server = createServer(makeTestOpts('imz_x', fetchFn as unknown as typeof fetch));
+    const tools = (server as unknown as PrivateServer)._registeredTools;
+    const parsed = schema.parse(rowWith({ ...party, locale: 'en', send_sms: false }));
+    await tools['toplu_sozlesme_gonder'].handler(parsed, {});
+    const sent = JSON.parse(fetchFn.mock.calls[0][1].body as string);
+    expect(sent.rows[0].party_mapping[0].locale).toBe('en');
+    expect(sent.rows[0].party_mapping[0].send_sms).toBe(false);
+  });
+});

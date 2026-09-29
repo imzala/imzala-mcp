@@ -2,9 +2,13 @@ import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ResolveClient } from './whoami.js';
 import { formatBulkResult, formatError } from '../format.js';
+import { partySchema } from './sablondanSozlesme.js';
 
 const bulkRowSchema = z.object({
-  party_mapping: z.array(z.any()).describe('Bu satırın taraf eşlemesi (sablondan_sozlesme_olustur ile aynı şekil: template_party_id + ad soyad + email/phone). template_party_id = sablon_detay çıktısındaki tam UUID; taraf adını/etiketini DEĞİL.'),
+  // Tek-sözleşme aracıyla AYNI taraf şeması (locale dahil). passthrough: API'nin
+  // kabul ettiği diğer taraf alanları (send_sms, custom_message vb.) eskiden
+  // olduğu gibi iletilmeye devam eder, sessizce ayıklanmaz.
+  party_mapping: z.array(partySchema.passthrough()).describe('Bu satırın taraf eşlemesi (sablondan_sozlesme_olustur ile aynı şekil: template_party_id + ad soyad + email/phone + isteğe bağlı variables ve locale). template_party_id = sablon_detay çıktısındaki tam UUID; taraf adını/etiketini DEĞİL.'),
   variables: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().describe('Bu satıra özel değişkenler'),
 });
 
