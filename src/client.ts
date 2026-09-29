@@ -117,6 +117,8 @@ export interface CreateDemandPartyMapping {
   email?: string;
   phone?: string;
   variables?: Record<string, string | number | boolean | null>;
+  /** İmzacı dili (API 1.10.0). Verilmezse şablon rolünün varsayılanı. */
+  locale?: 'tr' | 'en';
 }
 export interface CreateDemandInput {
   templateId: string;

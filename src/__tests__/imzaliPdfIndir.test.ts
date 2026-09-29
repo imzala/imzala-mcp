@@ -11,7 +11,7 @@ describe('downloadPdf', () => {
     });
     const c = makeClient({ apiKey: 'imz_x', baseUrl: 'https://api-prd.imzala.org', fetch: fetchFn as unknown as typeof fetch });
     const buf = await c.downloadPdf('https://api-prd.imzala.org/sonuc/dem_1/pdf');
-    expect(fetchFn).toHaveBeenCalledWith('https://api-prd.imzala.org/sonuc/dem_1/pdf', { method: 'GET', headers: { 'User-Agent': 'imzala-mcp/1.8.0' } });
+    expect(fetchFn).toHaveBeenCalledWith('https://api-prd.imzala.org/sonuc/dem_1/pdf', { method: 'GET', headers: { 'User-Agent': 'imzala-mcp/1.9.0' } });
     expect(Buffer.isBuffer(buf)).toBe(true);
     expect(buf.toString('utf8')).toContain('%PDF');
   });

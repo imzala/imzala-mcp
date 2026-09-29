@@ -3,13 +3,14 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ResolveClient } from './whoami.js';
 import { formatCreateDemand, formatError } from '../format.js';
 
-const partySchema = z.object({
+export const partySchema = z.object({
   template_party_id: z.string().describe('Şablondaki tarafın tam kimliği (UUID). sablon_detay çıktısında her taraf için verilen "template_party_id" değerini AYNEN kullan; tarafın adını/etiketini (ör. "İmzalayan") DEĞİL.'),
   first_name: z.string(),
   last_name: z.string(),
   email: z.string().optional(),
   phone: z.string().optional(),
   variables: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().describe('Bu tarafa özel değişkenler'),
+  locale: z.enum(['tr', 'en']).optional().describe('İmzacının dijital imza sayfası ve bildirim dili. Boş bırakılırsa şablondaki rolün varsayılan dili, o da yoksa imzacının tarayıcı dili kullanılır; bu durumda bildirimler Türkçe gider.'),
 });
 
 export const sablondanSozlesmeInputSchema = {

@@ -254,7 +254,7 @@ Bir şablondan yeni sözleşme oluşturur. **1 kredi harcar ve geri alınamaz.**
 | Alan | Tip | Zorunlu | Aciklama |
 |------|-----|---------|----------|
 | `template_id` | `string` | Evet | Sözleşmenin oluşturulacağı şablonun kimliği |
-| `parties` | `array` | Evet | Taraflar. Her öğe: `template_party_id` (sablon_detay ile öğrenilir) + `first_name` + `last_name` + (`email` veya `phone`) + isteğe bağlı `variables` |
+| `parties` | `array` | Evet | Taraflar. Her öğe: `template_party_id` (sablon_detay ile öğrenilir) + `first_name` + `last_name` + (`email` veya `phone`) + isteğe bağlı `variables` + isteğe bağlı `locale` (`tr` veya `en`: imzacının dijital imza sayfası ve bildirim dili; boş bırakılırsa şablonun rol varsayılanı, o da yoksa tarayıcı dili, bildirimler Türkçe) |
 | `variables` | `object` | Hayir | Şablon geneli değişkenler (slug: değer) |
 | `gonder` | `boolean` | Hayir | `true` verilirse taraflara HEMEN gerçek SMS ve e-posta daveti gönderilir. Varsayılan `false`: sadece oluşturur, mesaj göndermez |
 | `idempotency_key` | `string` | Hayir | Sunucu tarafı destek eklendiğinde ayni istegin tekrarini onler (şu an ileriye donuk, henuz aktif koruma saglamaz) |
