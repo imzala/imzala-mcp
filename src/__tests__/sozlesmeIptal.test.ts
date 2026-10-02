@@ -47,7 +47,8 @@ describe('formatCancelDemand', () => {
     expect(out).toContain('İptal edildi'); // status → İptal edildi
     expect(out).toContain('Müşteri vazgeçti');
     expect(out).toMatch(/platform işlemi/);
-    expect(out).toMatch(/feshi değildir|feshi değildir/);
+    expect(out).toContain('hukuki fesih değildir');
+    expect(out).toContain('hukuki sonucu bu işlemle belirlenmez');
     expect(out).toMatch(/geri alınamaz/);
     // never an em dash (AI-signature / house style)
     expect(out).not.toContain('—');

@@ -21,7 +21,7 @@ describe('listTimestamps', () => {
     await c.listTimestamps();
     const [url, opts] = fetchFn.mock.calls[0];
     expect(url).toBe('https://api-prd.imzala.org/api/v1/timestamps?page=1&limit=20');
-    expect(opts).toEqual({ method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.8.0' } });
+    expect(opts).toEqual({ method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.9.0' } });
   });
 
   test('threads page + limit', async () => {
@@ -50,6 +50,6 @@ describe('formatTimestampList', () => {
 
   test('empty list', () => {
     const out = formatTimestampList({ timestamps: [], total: 0, page: 1, limit: 20 } as never);
-    expect(out).toContain('Hiç zaman damgası bulunamadı');
+    expect(out).toContain('Hiç Eser Tasdik kaydı bulunamadı');
   });
 });

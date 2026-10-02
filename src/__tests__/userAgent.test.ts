@@ -18,7 +18,7 @@ const CALLS: Array<[string, (c: ReturnType<typeof makeClient>) => Promise<unknow
   ['getDemand', (c) => c.getDemand('d1')],
   ['listTemplates', (c) => c.listTemplates()],
   ['getTemplate', (c) => c.getTemplate('t1')],
-  ['downloadPdf', (c) => c.downloadPdf('https://x/sonuc/d1/pdf')],
+  ['downloadSignedPdf', (c) => c.downloadSignedPdf('d1')],
   ['downloadCertificate', (c) => c.downloadCertificate('d1')],
   ['createDemand', (c) => c.createDemand({ templateId: 't1', partyMapping: [], send: false })],
   ['sendReminder', (c) => c.sendReminder({ demandId: 'd1' })],
@@ -38,7 +38,9 @@ test('CALLS listesi client yüzeyinin tamamını kapsıyor (yeni metot → buray
 });
 
 test.each(CALLS)('%s → her istek User-Agent: imzala-mcp/<version> taşır', async (_name, invoke) => {
-  const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonOk()));
+  // PDF uçları yalnız gerçek PDF gövdesini kabul eder; diğerleri JSON zarfı bekler.
+  const fetchMock = vi.fn().mockImplementation((url: string) =>
+    Promise.resolve(/\/(pdf|certificate)$/.test(url) ? new Response('%PDF-1.7', { status: 200 }) : jsonOk()));
   const c = makeClient({ apiKey: 'imz_x', baseUrl: 'https://x', fetch: fetchMock as any });
   await invoke(c);
   expect(fetchMock).toHaveBeenCalled();
@@ -47,12 +49,13 @@ test.each(CALLS)('%s → her istek User-Agent: imzala-mcp/<version> taşır', as
   }
 });
 
-test('downloadPdf keyfî URL çeker — User-Agent GİDER, X-API-Key GİTMEZ (anahtar sızıntısı kilidi)', async () => {
-  const fetchMock = vi.fn().mockResolvedValue(new Response('pdf', { status: 200 }));
+test('downloadSignedPdf yalnız baseUrl altındaki v1 ucuna gider; kimlikler yol parçası olarak kodlanır (anahtar başka adrese gitmez)', async () => {
+  const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response('%PDF-1.7', { status: 200 })));
   const c = makeClient({ apiKey: 'imz_x', baseUrl: 'https://x', fetch: fetchMock as any });
-  await c.downloadPdf('https://elsewhere.example/file.pdf');
-  const [, init] = fetchMock.mock.calls[0];
-  const headers = init?.headers as Record<string, string>;
-  expect(headers['User-Agent']).toBe(EXPECTED_UA);
-  expect(headers['X-API-Key']).toBeUndefined();
+  await c.downloadSignedPdf('../../elsewhere.example/a', 'doc/../b');
+  const [url, init] = fetchMock.mock.calls[0];
+  expect(url).toBe('https://x/api/v1/demands/..%2F..%2Felsewhere.example%2Fa/belge/doc%2F..%2Fb/pdf');
+  expect((init?.headers as Record<string, string>)['User-Agent']).toBe(EXPECTED_UA);
+  // İstemcide keyfi URL çeken bir yardımcı kalmadı.
+  expect('downloadPdf' in c).toBe(false);
 });

@@ -27,7 +27,7 @@ describe('getDemand', () => {
     const res = await c.getDemand('dem_1');
     expect(fetchFn).toHaveBeenCalledWith(
       'https://api-prd.imzala.org/api/v1/demands/dem_1',
-      { method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.8.0' } },
+      { method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.9.0' } },
     );
     expect(res.title).toBe('Kira Sözleşmesi');
     expect(res.parties).toHaveLength(2);
@@ -59,12 +59,15 @@ describe('formatContractStatus', () => {
 
   test('includes the neutral non-legal-proof disclaimer footer', () => {
     const out = formatContractStatus(DEMAND as never);
-    expect(out).toContain('ispat teşkil etmez');
+    expect(out).toContain('hukuki görüş değildir');
+    expect(out).not.toContain('ispat teşkil etmez');
   });
 
-  test('shows PDF link when completed', () => {
+  test('when completed, points at imzali_pdf_indir instead of printing the public PDF link', () => {
     const completed = { ...DEMAND, status: 'COMPLETED', pdf_url: 'https://api-prd.imzala.org/sonuc/dem_1/pdf' };
-    expect(formatContractStatus(completed as never)).toContain('https://api-prd.imzala.org/sonuc/dem_1/pdf');
+    const out = formatContractStatus(completed as never);
+    expect(out).toContain('imzali_pdf_indir');
+    expect(out).not.toContain('https://api-prd.imzala.org/sonuc/dem_1/pdf');
   });
 
   test('tolerant read: masked backend shape (name + email_masked, no raw PII)', () => {

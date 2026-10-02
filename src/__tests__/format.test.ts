@@ -53,10 +53,10 @@ describe('formatError — redaction', () => {
     expect(text.toLowerCase()).toContain('kimlik');
   });
 
-  test('403 INSUFFICIENT_SCOPE is scope-agnostic: mentions demands:write (not just timestamps) and dashboard', () => {
+  test('403 INSUFFICIENT_SCOPE is scope-agnostic: mentions demands:write (not just timestamps) and the panel', () => {
     const text = formatError(new ImzalaApiError(403, 'INSUFFICIENT_SCOPE', 'Forbidden'));
     expect(text).toContain('demands:write');
-    expect(text.toLowerCase()).toContain('dashboard');
+    expect(text).toContain('İmzala.org panelinden');
   });
 
   test('429 RATE_LIMITED mentions bekleme/zorla', () => {
@@ -78,7 +78,8 @@ describe('formatError — redaction', () => {
 
   test('503 / TSA_UNAVAILABLE says service unavailable', () => {
     const text = formatError(new ImzalaApiError(503, 'TSA_UNAVAILABLE', 'Down'));
-    expect(text.toLowerCase()).toContain('kullanılamıyor');
+    expect(text).toContain('şu an tamamlanamıyor');
+    expect(text).toContain('tekrar deneyin');
   });
 
   test('422 / BAD_BASE64 mentions base64', () => {
@@ -86,9 +87,9 @@ describe('formatError — redaction', () => {
     expect(text.toLowerCase()).toContain('base64');
   });
 
-  test('422 / STAMP_INVALID mentions zaman damgası', () => {
+  test('422 / STAMP_INVALID says the Eser Tasdik record was not created', () => {
     const text = formatError(new ImzalaApiError(422, 'STAMP_INVALID', 'Stamp failed'));
-    expect(text.toLowerCase()).toContain('zaman damgası');
+    expect(text).toContain('Eser Tasdik kaydı oluşturulamadı');
   });
 
   test('unknown ImzalaApiError uses code/status — never raw message', () => {

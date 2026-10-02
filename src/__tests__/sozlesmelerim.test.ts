@@ -21,7 +21,7 @@ describe('listDemands', () => {
     await c.listDemands();
     const [url, opts] = fetchFn.mock.calls[0];
     expect(url).toBe('https://api-prd.imzala.org/api/v1/demands?page=1&limit=20');
-    expect(opts).toEqual({ method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.8.0' } });
+    expect(opts).toEqual({ method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.9.0' } });
   });
 
   test('threads status + q + page + limit into the query string', async () => {
@@ -61,8 +61,9 @@ describe('formatDemandList', () => {
     expect(out).toContain('1/2 taraf imzaladı');
     expect(out).toContain('Tamamlandı');
     expect(out).toContain('Toplam: 2');
-    // completed item exposes its public result-page pdf, but never an /imza/ bearer link
-    expect(out).toContain('https://api-prd.imzala.org/sonuc/d2/pdf');
+    // the public pdf link is not printed (imzali_pdf_indir downloads it), nor an /imza/ bearer link
+    expect(out).not.toContain('https://api-prd.imzala.org/sonuc/d2/pdf');
+    expect(out).toContain('imzali_pdf_indir');
     expect(out).not.toContain('/imza/');
   });
 

@@ -2,7 +2,7 @@ import { describe, test, expect, vi } from 'vitest';
 import { makeClient, ImzalaApiError } from '../client.js';
 import { formatError, formatTemplateDetail, formatBulkResult } from '../format.js';
 
-const GENERIC_409 = 'Bu işlem sözleşmenin mevcut durumunda yapılamaz';
+const GENERIC_409 = 'mevcut durumunda yapılamaz';
 
 function errFetch(status: number, body: unknown) {
   return vi.fn().mockResolvedValue({ ok: false, status, json: async () => body });
@@ -109,8 +109,10 @@ describe('formatError — document selection codes get their OWN message', () =>
     expect(text).toContain('Belge seçimi');
   });
 
-  test('a plain 409 (cancel conflict) keeps the existing generic message', () => {
-    expect(formatError(new ImzalaApiError(409, 'DEMAND_NOT_CANCELLABLE', 'x'))).toContain(GENERIC_409);
+  test('an unrelated 409 gets the neutral conflict message, not a cancel-specific one', () => {
+    const out = formatError(new ImzalaApiError(409, 'DEMAND_NOT_CANCELLABLE', 'x'));
+    expect(out).toContain('mevcut durumunda yapılamaz');
+    expect(out).not.toContain('iptal edilemez');
   });
 });
 

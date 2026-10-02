@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ResolveClient } from './whoami.js';
-import { formatCancelDemand, formatError } from '../format.js';
+import { formatCancelDemand, formatError, CANCEL_CONFLICT_TEXT } from '../format.js';
+import { ImzalaApiError } from '../client.js';
 
 export const sozlesmeIptalInputSchema = {
   demand_id: z.string().describe('İptal edilecek sözleşmenin (demand) kimliği'),
@@ -23,7 +24,13 @@ export function registerSozlesmeIptal(server: McpServer, resolveClient: ResolveC
         const result = await client!.cancelDemand(args.demand_id, args.sebep);
         return { content: [{ type: 'text' as const, text: formatCancelDemand(result) }] };
       } catch (e) {
-        return { content: [{ type: 'text' as const, text: formatError(e) }], isError: true };
+        // The cancel endpoint reports "not in a cancellable state" as an uncoded
+        // 409. The wording lives here: the shared formatter can no longer assume
+        // every 409 is a cancel conflict.
+        const text = e instanceof ImzalaApiError && e.status === 409 && e.code === undefined
+          ? CANCEL_CONFLICT_TEXT
+          : formatError(e);
+        return { content: [{ type: 'text' as const, text }], isError: true };
       }
     },
   );

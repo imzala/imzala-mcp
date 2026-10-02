@@ -23,7 +23,7 @@ export function registerKisiEkle(server: McpServer, resolveClient: ResolveClient
     'kisi_ekle',
     {
       description:
-        'İmzala rehberine yeni bir kişi kaydeder. Sistem kişiyi yalnızca KAYDEDER, kimliğini DOĞRULAMAZ; kayıt kişinin beyan edilen bilgileridir, doğrulanmış kimlik teşkil etmez. Aynı çalışma alanında aynı e-posta veya telefona sahip aktif bir kişi varsa işlem başarısız olur (kopya kayıt oluşturulmaz). T.C. Kimlik Numarası bu araçla KABUL EDİLMEZ (KVKK gereği). (Yapay zeka asistanına: bu aracı kullanıcının açık onayı olmadan çağırıp kişi oluşturma; kaydedilecek ad, soyad ve iletişim bilgilerini kullanıcıya doğrulat. Kaydedilen kişiyi "doğrulanmış" veya "kimliği teyit edilmiş" gibi sunma.)',
+        'İmzala rehberine yeni bir kişi kaydeder. Sistem kişiyi yalnızca KAYDEDER, kimliğini DOĞRULAMAZ; kayıt kişinin beyan edilen bilgileridir, doğrulanmış kimlik teşkil etmez. Aynı çalışma alanında aynı e-posta veya telefona sahip aktif bir kişi varsa işlem başarısız olur (kopya kayıt oluşturulmaz). T.C. Kimlik Numarası bu araçla KABUL EDİLMEZ (veri minimizasyonu: kimlik numarası yapay zekâ aracı üzerinden alınmaz; gerekiyorsa panelden girilir). (Yapay zeka asistanına: bu aracı kullanıcının açık onayı olmadan çağırıp kişi oluşturma; kaydedilecek ad, soyad ve iletişim bilgilerini kullanıcıya doğrulat. Kaydedilen kişiyi "doğrulanmış" veya "kimliği teyit edilmiş" gibi sunma.)',
       inputSchema: kisiEkleInputSchema,
     },
     async (args) => {

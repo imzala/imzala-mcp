@@ -14,7 +14,7 @@ export function registerKisilerim(server: McpServer, resolveClient: ResolveClien
     'kisilerim',
     {
       description:
-        'İmzala hesabındaki (veya organizasyon çalışma alanındaki) kayıtlı kişileri (rehber) listeler. İsim, e-posta veya telefona göre aranabilir, sayfalanır. Yanıt T.C. Kimlik Numarası içermez (KVKK gereği bu kanalda ifşa edilmez).',
+        'İmzala hesabındaki (veya organizasyon çalışma alanındaki) kayıtlı kişileri (rehber) listeler. İsim, e-posta veya telefona göre aranabilir, sayfalanır. Yanıt T.C. Kimlik Numarası içermez (veri minimizasyonu: bu kanaldan verilmez).',
       inputSchema: kisilerimInputSchema,
     },
     async (args) => {

@@ -1,8 +1,29 @@
 # @imzala/mcp-server
 
-**İmzala MCP server:** AI asistanınızın (Claude, Cursor vb.) İmzala hesabınıza erişmesini sağlar. API anahtarıyla kimlik doğrulaması yapılır; on üç araç sunar: `whoami` (hesap ve kredi bilgisi), `eser_tescil` (RFC 3161 zaman damgası), `sozlesme_durumu` (sözleşme durumu ve imza takibi), `sozlesmelerim` (sözleşme listesi, filtreli), `sablonlarim` (şablon listesi), `sablon_detay` (şablon detayı ve değişken kataloğu), `imzali_pdf_indir` (tamamlanmış sözleşmenin imzalı PDF'ini indirme), `kisilerim` (kayıtlı kişi listesi), `zaman_damgalarim` (zaman damgası listesi), `sablondan_sozlesme_olustur` (şablondan yeni sözleşme oluşturma, kredi harcar), `sozlesme_iptal` (bekleyen sözleşmeyi iptal etme, geri alınamaz), `kisi_ekle` (rehbere kişi ekleme), `hatirlatma_gonder` (imzalamamış taraflara gerçek SMS/e-posta hatırlatması gönderme).
+**İmzala MCP sunucusu:** yapay zekâ asistanınızın (Claude, Cursor vb.) İmzala hesabınıza erişmesini sağlar. API anahtarıyla kimlik doğrulaması yapılır ve on sekiz araç sunar.
 
-> **Önemli:** `sablondan_sozlesme_olustur`, `sozlesme_iptal`, `kisi_ekle` ve `hatirlatma_gonder` **yazma (write)** araçlarıdır: sözleşme oluşturur/iptal eder, kişi kaydeder veya gerçek SMS/e-posta gönderir. Bunlar API anahtarınızda ilgili yazma kapsamını ister (sözleşme araçları `demands:write`, `kisi_ekle` `contacts:write`); **salt-okunur** bir anahtarla çalışmazlar. `sozlesme_iptal` bir platform iptalidir (imzalı belgenin hukuki feshi değildir) ve **geri alınamaz**. Bkz. "API Anahtarı Nasıl Alınır" ve ilgili araç bölümleri.
+| Araç | Ne yapar | Kapsam |
+|------|----------|--------|
+| `whoami` | Hesap ve kredi bilgisi | (her anahtar) |
+| `sozlesmelerim` | Sözleşme listesi; durum, arşiv, başlık ve tarih filtresi | `demands:read` |
+| `sozlesme_durumu` | Sözleşme durumu, imza takibi, zarf belgeleri, süre takibi | `demands:read` |
+| `sozlesme_audit` | Sözleşmenin denetim izi (kim, ne, ne zaman) | `demands:read` |
+| `imzali_pdf_indir` | Tamamlanmış sözleşmenin imzalı PDF'i | `demands:read` |
+| `sozlesme_sertifikasi` | Tamamlanma sertifikası (PDF) | `demands:read` |
+| `raporlar` | Sözleşme sayıları özeti | `demands:read` |
+| `sablonlarim` | Şablon listesi | `templates:read` |
+| `sablon_detay` | Şablonun tarafları, değişkenleri ve belgeleri | `templates:read` |
+| `kisilerim` | Kayıtlı kişi listesi | `contacts:read` |
+| `zaman_damgalarim` | Eser Tasdik kayıtları | `timestamps` |
+| `eser_tescil` | Eser Tasdik: dosya için var olma ve değişmezlik kaydı (tescil değildir; kredi harcar) | `timestamps` |
+| `sablondan_sozlesme_olustur` | Şablondan yeni sözleşme (kredi harcar) | `demands:write` |
+| `toplu_sozlesme_gonder` | Aynı şablondan birden çok alıcıya ayrı sözleşme (kredi harcar) | `demands:write` |
+| `hatirlatma_gonder` | İmzalamamış taraflara gerçek SMS ve e-posta hatırlatması | `demands:write` |
+| `sozlesme_iptal` | Bekleyen sözleşmeyi iptal eder (geri alınamaz) | `demands:write` |
+| `sozlesme_sil` | Tamamlanmamış sözleşmeyi kalıcı olarak siler (geri alınamaz) | `demands:write` |
+| `kisi_ekle` | Rehbere kişi ekler | `contacts:write` |
+
+> **Önemli:** `sablondan_sozlesme_olustur`, `toplu_sozlesme_gonder`, `sozlesme_iptal`, `sozlesme_sil`, `kisi_ekle` ve `hatirlatma_gonder` **yazma (write)** araçlarıdır: sözleşme oluşturur, iptal eder ya da siler, kişi kaydeder veya gerçek SMS/e-posta gönderir. Bunlar API anahtarınızda ilgili yazma kapsamını ister (sözleşme araçları `demands:write`, `kisi_ekle` `contacts:write`); **salt-okunur** bir anahtarla çalışmazlar. `sozlesme_iptal` İmzala.org üzerindeki imza sürecinin iptalidir (platform işlemi); hukuki fesih değildir, taraflar arasındaki hukuki ilişkiyi kendiliğinden sona erdirmez ve **geri alınamaz**. Bkz. "API Anahtarı Nasıl Alınır" ve ilgili araç bölümleri.
 
 > **Not:** Bu paket varsayılan olarak İmzala üretim ortamına (`https://api-prd.imzala.org`) bağlanır. Farklı bir uç nokta için `IMZALA_API_BASE_URL` değişkenini ayarlayın.
 
@@ -74,30 +95,54 @@
 1. [app.imzala.org](https://app.imzala.org) adresinden hesabiniza giris yapin.
 2. Saga ustten **Hesap ayarlari** bölümüne gidin.
 3. **API Anahtarlari** sekmesini acin ve **Yeni Anahtar** butonuna tiklayin.
-4. Kapsam seciminde, hangi araclari kullanacaginiza gore en dar (minimal) kombinasyonu isaretleyin. Bu MCP sunucusundaki dokuz salt-okunur aracin (`whoami`, `eser_tescil`, `sozlesme_durumu`, `sozlesmelerim`, `sablonlarim`, `sablon_detay`, `imzali_pdf_indir`, `kisilerim`, `zaman_damgalarim`) hicbiri sozlesme olusturmaz ya da degistirmez, bu yuzden **salt-okunur kapsam** vermeniz onerilir: `eser_tescil`, `whoami` ve `zaman_damgalarim` icin `timestamps`; `sozlesme_durumu`, `sozlesmelerim` ve `imzali_pdf_indir` icin `demands:read`; `sablonlarim` ve `sablon_detay` icin `templates:read`; `kisilerim` icin `contacts:read`. Dashboard'da **"Yapay zeka asistani icin salt-okunur (onerilen)"** hazir secenegi bu okuma kapsamlarini tek tikla secer.
-   Yazma yetkisi veren bir anahtar **sadece** yazma araclarini kullanmak istiyorsaniz gereklidir: `sablondan_sozlesme_olustur` (sözleşme oluşturma) ve `sozlesme_iptal` (sözleşme iptali, geri alınamaz) için `demands:write`, `kisi_ekle` (kişi ekleme) için `contacts:write`, `hatirlatma_gonder` (gerçek SMS/e-posta hatırlatması) için `demands:write`. Bu araçlar ilgili yazma kapsamı olmadan çalışmaz. Yazma araçlarını kullanmayacaksanız yazma kapsamı VERMEYIN. Kullanmak isterseniz **ayrı bir anahtar** oluşturup yalnızca ona gereken yazma kapsamını verin; salt-okunur ana anahtarınızı genişletmeyin. (Eski, ayrimsiz `demands`/`templates`/`contacts` kapsamli anahtarlar da calisir ama yazma yetkisi de icerdiginden onerilmez.)
+4. Kapsam seçiminde, hangi araçları kullanacağınıza göre en dar kombinasyonu işaretleyin. Okuma araçları (`whoami`, `sozlesmelerim`, `sozlesme_durumu`, `sozlesme_audit`, `imzali_pdf_indir`, `sozlesme_sertifikasi`, `raporlar`, `sablonlarim`, `sablon_detay`, `kisilerim`, `zaman_damgalarim`) sözleşme oluşturmaz ya da değiştirmez. Bunlar için: sözleşme araçlarına `demands:read`, şablon araçlarına `templates:read`, `kisilerim` için `contacts:read`, `zaman_damgalarim` için `timestamps`. Paneldeki **"Yapay zekâ asistanı için salt-okunur (önerilen)"** hazır seçeneği okuma kapsamlarını tek tıkla seçer.
+   `timestamps` kapsamı `eser_tescil` aracını da açar; bu araç kredi harcar ve kayıt oluşturur. Bunu istemiyorsanız `timestamps` kapsamını vermeyin.
+   Yazma kapsamı **yalnızca** yazma araçlarını kullanacaksanız gerekir: `sablondan_sozlesme_olustur`, `toplu_sozlesme_gonder`, `hatirlatma_gonder`, `sozlesme_iptal` ve `sozlesme_sil` için `demands:write`; `kisi_ekle` için `contacts:write`. Yazma araçlarını kullanmayacaksanız yazma kapsamı VERMEYİN. Kullanacaksanız **ayrı bir anahtar** oluşturup yalnız ona gereken yazma kapsamını verin; salt-okunur ana anahtarınızı genişletmeyin. (Eski, ayrımsız `demands` / `templates` / `contacts` kapsamlı anahtarlar da çalışır ama yazma yetkisi de içerdiğinden önerilmez.)
 5. Olusan anahtari kopyalayin ve yukaridaki yapilandirma dosyasina girin.
 
 ---
 
 ## Anahtar Guvenligi
 
-Bu API anahtari hesabiniza erisim saglar ve her zaman damgasi isleminde **kredi harcar.** Asagidaki kurallara uyun:
+Bu API anahtarı hesabınıza erişim sağlar; sözleşme oluşturma ve Eser Tasdik işlemleri **kredi harcar.** Aşağıdaki kurallara uyun:
 
 - Anahtari bir parola gibi sayin; e-posta, Slack veya kaynak kod deposuna yapistirmayin.
-- Anahtari eklediginiz AI aracinin saglayicisi (Anthropic, Cursor vb.) yapılandirma dosyanizi okuyabilir. Bu riski kabul edilebilir kilmak icin **salt-okunur** bir anahtar kullanin (`timestamps` + `demands:read` + `templates:read`, dashboard'daki "Yapay zeka asistani icin salt-okunur" secenegi); yazma yetkisi (`demands:write`) veren ya da tam yetkili anahtar **vermeyin**. Boylece anahtar sizsa bile ucuncu taraf sozlesmelerinizi degistiremez, yeni sozlesme olusturamaz, gercek SMS/e-posta gonderemez; yalnizca okuyabilir.
+- Anahtari eklediginiz AI aracinin saglayicisi (Anthropic, Cursor vb.) yapılandirma dosyanizi okuyabilir. Bu riski kabul edilebilir kilmak icin **salt-okunur** bir anahtar kullanin (`timestamps` + `demands:read` + `templates:read`, dashboard'daki "Yapay zeka asistani icin salt-okunur" secenegi); yazma yetkisi (`demands:write`) veren ya da tam yetkili anahtar **vermeyin**. Böylece anahtar sızsa bile üçüncü taraf sözleşme oluşturamaz, değiştiremez, gerçek SMS ya da e-posta gönderemez. `timestamps` kapsamı verdiyseniz Eser Tasdik işlemiyle kredi harcayabilir; bunu istemiyorsanız `timestamps` kapsamını vermeyin.
 - `sablondan_sozlesme_olustur` ve `hatirlatma_gonder` kasitli olarak `demands:write` kapsami GEREKTIRIR: salt-okunur bir anahtarla (yukaridaki onerilen kombinasyon) bu iki arac calismaz, sadece hata doner. Bu bir guvenlik onlemidir: bir AI asistanina salt-okunur anahtar veren kullanici, o asistanin adiniza sozlesme olusturmasini ya da karsi taraflara gercek mesaj gondermesini istemiyor demektir. Bu iki araci kullanmak isterseniz, ayri bir `demands:write` kapsamli anahtar olusturun ve sadece o kullanim icin verin.
 - Anahtarinizin gizlendigini dusunuyorsaniz dashboard'daki **API Anahtarlari** sayfasindan hemen iptal edin ve yeni bir anahtar olusturun.
 
-### Veri akisi (onemli)
+### Veri akışı (önemli)
 
-Bu araclari kullandiginizda, sorguladiginiz veri, protokolun dogasi geregi kullandiginiz AI aracinin saglayicisinin (Anthropic, Cursor vb.) altyapisindan gecer ve onun veri isleme kosullarina tabi olur. Ozellikle:
+Bu araçları kullandığınızda sorguladığınız ve yazdığınız veri, kullandığınız yapay zekâ aracının sağlayıcısının (Anthropic, Cursor vb.) altyapısından geçer ve onun veri işleme koşullarına tabi olur. Bu sağlayıcılar çoğunlukla yurt dışındadır; bu durumda kişisel veri yurt dışına aktarılmış olur.
 
-- `sozlesme_durumu` sozlesmenizdeki **karsi tarafin adini, soyadini, e-postasini ve imza tarihini** ciktida dondurur.
-- `imzali_pdf_indir` **tamamlanmis sozlesmenin tam icerigini** (varsa TC kimlik, adres, finansal veri dahil) dondurur.
-- `sablondan_sozlesme_olustur` **girdi yonunde** kisisel veri tasir: siz yazdiginiz karsi tarafin adini, soyadini, e-postasini ve/veya telefonunu, sozlesmeyi olusturmak icin kullandiginiz AI aracinin altyapisi uzerinden Imzala'ya gonderir.
+Asistana giden veriler:
 
-Bu veri, dashboard'da zaten gorebildiginiz ayni bilgidir; **İmzala.org bu aktarimi yapmaz**, hangi AI aracini kullanacaginiza siz karar verirsiniz. Sozlesmenizin karsi tarafina ait verileri bu sekilde islemeden once kendi veri sorumlusu yukumluluklerinizi degerlendirin.
+- `sozlesme_durumu`: tarafların adı ve e-postası (API maskeli döndürüyorsa kısaltılmış ad ve maskeli e-posta), imza ve ret tarihleri; zarftaki belge başlıkları, belge türü, belge başına kaç tarafın karar verdiği ve mühür durumu; arşiv ve süre takibi tarihleri. Hangi tarafın hangi belgeyi kabul ya da reddettiği ve açık rıza kayıtları gösterilmez.
+- `sozlesmelerim`: sözleşme başlıkları, durum ve sayılar. Taraf adı ve e-postası listelenmez.
+- `sozlesme_audit`: denetim izi (kısaltılmış ad, maskeli e-posta ve IP). Bir tarafın imza sayfasında yazdığı not varsa (ör. ret gerekçesi) tırnak içinde ve kısaltılarak gösterilir; bu not kişisel veri içerebilir.
+- `imzali_pdf_indir` ve `sozlesme_sertifikasi`: `save_path` verilmezse belgenin tamamı asistana gider. İmzalı PDF sözleşmenin tüm içeriğini (varsa T.C. kimlik numarası, adres, finansal veri) taşır; sertifika taraflara ait kişisel veri (iletişim bilgileri ve işlem kayıtları) içerir. Yerel dosyaya kaydetmek için `save_path` kullanın.
+- `kisilerim`: rehberdeki kişilerin adı, e-postası, telefonu, unvanı ve şirketi (maskesiz).
+- `sablondan_sozlesme_olustur`, `toplu_sozlesme_gonder`, `kisi_ekle`: asistana yazdığınız ad, e-posta ve telefon bilgileri önce yapay zekâ sağlayıcısına, ardından İmzala'ya ulaşır.
+- `eser_tescil`: `file_base64` ile verirseniz dosyanın içeriği.
+
+Kimin kararı: bu paket yalnızca İmzala API'siyle konuşur; yapay zekâ sağlayıcısına veri gönderen, sizin seçtiğiniz araçtır. Kişisel çalışma alanında bu kararı siz verirsiniz. Kurum çalışma alanında veri sorumlusu kurumunuzdur: bu araçları kurum verisiyle kullanmadan önce kurumunuzun buna izin verdiğini teyit edin (kurum yöneticisi erişimi kapatabilir, bkz. "Kurum politikası"). Sözleşme taraflarına ait verileri bu yolla işlemeden önce, yurt dışına aktarım dahil veri sorumlusu yükümlülüklerini değerlendirin. Belgeleriniz sağlık gibi özel nitelikli veri içeriyorsa bu araçlarla işlemeden önce ayrıca değerlendirin.
+
+---
+
+## Kurum politikası
+
+Bir kurumun yöneticisi, bu paketin kurumun İmzala çalışma alanına erişimini kapatabilir. Bu durumda paket üzerinden gelen istekler reddedilir ve araç "Kurumunuz yapay zekâ araçlarının İmzala hesabına erişimini kapattı" mesajını döner. Bu bir kurum politikasıdır, teknik bir kilit değildir: yalnızca bu resmî paketi tanır, API anahtarını başka bir istemciyle kullanan erişimi engellemez. Kesin engel için kurum yöneticisi ilgili API anahtarlarını iptal etmelidir. Erişim için kurum yöneticinizle görüşün.
+
+---
+
+## Hata durumlarında
+
+Araçlar sunucunun ham hata metnini aktarmaz; ne olduğunu ve sonraki adımı söyleyen kısa bir mesaj döner. Sözleşme oluşturan araçlarda bilmeniz gerekenler:
+
+- **Mesaj bir sözleşme kimliği veriyorsa sözleşme oluşmuştur.** Kredi yetersizliği, üye aylık limiti ya da kredi mutabakatı hatasında sözleşme taslak olarak kalabilir ve davet gönderilmez. Aracı yeniden çağırmayın; taslak panelden gönderilir.
+- **Tekrar koruması.** `idempotency_key` vermeden aynı içerikle (aynı şablon, taraflar ve değişkenler) 10 dakika içinde ikinci bir sözleşme oluşturma isteği durdurulur ve mevcut sözleşmenin kimliği döner. Bu en iyi çaba korumasıdır, kesin bir engel değildir. İkinci sözleşmeyi bilerek istiyorsanız `tekrar_onayi: true` verin.
+- **`idempotency_key`.** Aynı anahtar ve aynı içerikle yapılan tekrar istek yeni sözleşme oluşturmaz, ilk sözleşmeyi döndürür. Anahtar 1-255 karakter, boşluksuz ve yalnız ASCII olmalıdır.
+- **İstek sınırı.** Anahtar başına dakikada 60 istek; toplu gönderimde dakikada 5, Eser Tasdik işleminde dakikada 10. Aşıldığında araç kaç saniye beklemeniz gerektiğini söyler.
 
 ---
 
@@ -112,7 +157,7 @@ Hesap bilgilerini ve anlık kredi bakiyesini gösterir.
 **Cikti ornegi:**
 
 ```
-Hesap: Ahmet Yilmaz (ahmet@ornek.com)
+Hesap: ayse@example.com (Ayşe Yılmaz)
 Kredi: 42 kalan
 Calisma alani: Kisisel
 ```
@@ -121,13 +166,13 @@ Calisma alani: Kisisel
 
 ### `eser_tescil`
 
-Bir dosyaya RFC 3161 zaman damgasi uygular. Dosyanin belirtilen anda var oldugunu ve o andan bu yana degismedigini kriptografik olarak kanitlar.
+Eser Tasdik hizmeti: verdiğiniz dosya için bir kayıt oluşturur; dosyanın özeti (SHA-256) bir zaman damgası sağlayıcısının ürettiği RFC 3161 zaman damgasıyla damgalanır. Kayıt, dosyanın en geç belirtilen anda var olduğunu ve o andan sonra değişmediğini teknik (kriptografik) olarak gösterir. Kredi harcar. Araç adındaki "tescil" tarihsel bir addır: bu işlem eser, telif ya da başka bir hak tescili değildir, imza da değildir.
 
 **Girdiler:**
 
 | Alan | Tip | Zorunlu | Aciklama |
 |------|-----|---------|----------|
-| `file_path` | `string` | XOR | Damgalanacak dosyanin yerel yolu |
+| `file_path` | `string` | XOR | Eser Tasdik kaydı oluşturulacak dosyanın yerel yolu |
 | `file_base64` | `string` | XOR | Dosya icerigi (standart canonical base64; data-URL veya URL-safe base64 kabul edilmez) |
 | `file_name` | `string` | Evet | Dosya adi, uzanti dahil (orn. `belge.pdf`) |
 | `owner_first_name` | `string` | Hayir | Eser sahibinin adi (beyan) |
@@ -141,7 +186,7 @@ Bir dosyaya RFC 3161 zaman damgasi uygular. Dosyanin belirtilen anda var oldugun
 
 ### `sozlesme_durumu`
 
-Bir sözleşmenin durumunu ve hangi tarafların imzaladığını gösterir. "X sözleşmesini kim imzaladı, imzalandı mı" sorularını yanıtlar.
+Bir sözleşmenin durumunu ve hangi tarafların imzaladığını gösterir. "X sözleşmesini kim imzaladı, imzalandı mı" sorularını yanıtlar. Sözleşme arşivlendiyse, süre takibi tanımlıysa ya da birden çok belgeli bir zarfsa bunları da gösterir (belge başına kaç tarafın karar verdiği ve mühür durumu). Taraf adları ve e-postaları API'nin döndürdüğü biçimde (kısaltılmış ve maskeli) gösterilir; yukarıdaki maske biçimi örnektir.
 
 **Girdiler:**
 
@@ -157,11 +202,34 @@ Durum: Bekliyor
 İmza durumu: 1/2 taraf imzaladı
 
 Taraflar:
-- Ahmet Yilmaz (ahmet@ornek.com): imzaladı (2026-06-30T10:15:00Z)
-- Mehmet Demir (mehmet@ornek.com): bekliyor
+- Ayşe Y. (a***@example.com): imzaladı (2026-06-30T10:15:00Z)
+- Örnek Kiracı (k***@example.com): bekliyor
+
+Belgeler (imzalı PDF için imzali_pdf_indir aracına belge_id verilir):
+- 1. Kira Sözleşmesi [doc_1], tür: Sözleşme, zorunlu, imza gerekir, durum: kısmen karar verildi (1/2 taraf)
+- 2. Aydınlatma Metni [doc_2], tür: Aydınlatma metni, imza gerekmez, durum: karar bekleniyor (0/2 taraf)
+Not: Belge durumu kararın verildiğini gösterir; kabul mü ret mi olduğunu göstermez. Onay ve açık rıza kayıtları İmzala.org panelinden ve tamamlanma sertifikasından izlenir.
 
 Sonuç sayfası: https://e.imzala.org/sonuc/xyz789
 ```
+
+Durum değerleri: Taslak (oluşturuldu ama taraflara gönderilmedi), Bekliyor, Tamamlandı, Süresi doldu, İptal edildi.
+
+---
+
+### `sozlesmelerim`
+
+Hesaptaki (veya kurum çalışma alanındaki) sözleşmeleri listeler. Yalnız özet döner (başlık, durum, imzalayan taraf sayısı); taraf adları ve e-postaları listelenmez.
+
+**Girdiler:**
+
+| Alan | Tip | Zorunlu | Aciklama |
+|------|-----|---------|----------|
+| `durum` | `string` | Hayir | `taslak`, `bekliyor`, `tamamlandi`, `iptal`, `suresi-doldu` |
+| `arsiv` | `string` | Hayir | `haric`, `yalniz`, `dahil`. Verilmezse arşivli sözleşmeler de listelenir (paneldeki listenin tersine) |
+| `arama` | `string` | Hayir | Sözleşme kimliği, başlığı ve açıklamasında arar. Taraf adı, e-posta ve telefonda aramaz |
+| `baslangic_tarih`, `bitis_tarih` | `string` | Hayir | Oluşturma tarihi aralığı (YYYY-AA-GG) |
+| `sayfa`, `limit` | `number` | Hayir | Sayfalama (varsayılan 20, en az 10, en fazla 100) |
 
 ---
 
@@ -223,19 +291,22 @@ Doldurulabilir değişkenler (sözleşme oluştururken kullanılır):
 
 ### `imzali_pdf_indir`
 
-Tamamlanmış bir sözleşmenin imzalı PDF'ini indirir. Sözleşmenin sahipliği önce doğrulanır; yalnız tamamlanmış (COMPLETED) sözleşmelerde çalışır.
+Tamamlanmış bir sözleşmenin imzalı PDF'ini indirir. Sözleşmenin sahipliği önce doğrulanır; yalnız tamamlanmış (COMPLETED) sözleşmelerde çalışır. İndirme API anahtarınızla yapılır.
+
+Çok belgeli zarfta her belgenin imzalı PDF'i ayrıdır: `belge_id` vermezseniz araç belgeleri listeler, istediğiniz belgeyi belirtip yeniden çağırırsınız. Belge henüz mühürleniyorsa araç bunu söyler ve dosya yazmaz; birkaç dakika sonra tekrar deneyin.
 
 **Girdiler:**
 
 | Alan | Tip | Zorunlu | Aciklama |
 |------|-----|---------|----------|
 | `demand_id` | `string` | Evet | İmzalı PDF'i indirilecek tamamlanmış sözleşmenin kimliği |
-| `save_path` | `string` | Hayir | PDF'in kaydedileceği yerel dosya yolu (verilmezse base64 döner) |
+| `belge_id` | `string` | Hayir | Çok belgeli zarfta indirilecek belgenin kimliği (`sozlesme_durumu` çıktısından) |
+| `save_path` | `string` | Hayir | PDF'in kaydedileceği yerel dosya yolu. Mutlak yol ve `.pdf` uzantısı gerekir; var olan bir dosyanın üzerine yazılmaz. Verilmezse base64 döner |
 
 **Cikti ornegi (save_path verildiğinde):**
 
 ```
-İmzalı PDF kaydedildi: /Users/ahmet/Downloads/kira-sozlesmesi.pdf (284213 bayt)
+İmzalı PDF kaydedildi: /Users/ayse/Downloads/kira-sozlesmesi.pdf (284213 bayt)
 ```
 
 **Cikti ornegi (save_path verilmediğinde, dosya küçükse):**
@@ -253,7 +324,7 @@ JVBERi0xLjcKJ...
 
 ### `sablondan_sozlesme_olustur`
 
-Bir şablondan yeni sözleşme oluşturur. **Kredi harcar ve geri alınamaz:** tek belgeli şablonda 1 kredi; çok belgeli zarfta maliyet imzacı başına o imzacıya atanan belge sayısına göre artar (belge sayısı arttıkça kademeli indirim uygulanır). Varsayılan olarak (`gonder` verilmez veya `false`) yalnızca sözleşmeyi oluşturur, taraflara herhangi bir mesaj GÖNDERMEZ; imza linklerini kendiniz iletirsiniz. `gonder: true` verirseniz taraflara hemen gerçek SMS ve e-posta daveti gönderilir.
+Bir şablondan yeni sözleşme oluşturur. **Kredi harcar:** tutar imzacı sayısına, imza türüne, doğrulama yöntemine ve her imzacıya atanan belge sayısına göre hesaplanır (çok belgeli zarfta belge sayısı arttıkça kademeli indirim uygulanır). Harcanan kredi bu araçla geri alınmaz; iade yalnız belirli iptal ve silme hallerinde, hizmet koşullarına göre yapılır. Varsayılan olarak (`gonder` verilmez veya `false`) yalnızca sözleşmeyi oluşturur, taraflara herhangi bir mesaj GÖNDERMEZ; daveti sonradan panelden gönderirsiniz. `gonder: true` verirseniz taraflara hemen gerçek SMS ve e-posta daveti gönderilir.
 
 **Girdiler:**
 
@@ -264,19 +335,20 @@ Bir şablondan yeni sözleşme oluşturur. **Kredi harcar ve geri alınamaz:** t
 | `variables` | `object` | Hayir | Şablon geneli değişkenler (slug: değer) |
 | `documents` | `object` | Hayir | Bu sözleşmede gönderilecek belgeleri seçer: `include` (varsayılanda gönderilmeyeni ekler) ve/veya `exclude` (varsayılanda gönderileni çıkarır), liste başına en fazla 20 belge kimliği. Verilmezse şablonun varsayılan belge kümesi gider |
 | `gonder` | `boolean` | Hayir | `true` verilirse taraflara HEMEN gerçek SMS ve e-posta daveti gönderilir. Varsayılan `false`: sadece oluşturur, mesaj göndermez |
-| `idempotency_key` | `string` | Hayir | Sunucu tarafı destek eklendiğinde ayni istegin tekrarini onler (şu an ileriye donuk, henuz aktif koruma saglamaz) |
+| `idempotency_key` | `string` | Hayir | Sizin verdiğiniz iş referansı (ör. sipariş numarası). Aynı anahtar ve aynı içerikle tekrar istek yeni sözleşme oluşturmaz. 1-255 karakter, boşluksuz, yalnız ASCII |
+| `tekrar_onayi` | `boolean` | Hayir | Tekrar koruması bir isteği durdurduktan sonra, aynı içerikte ikinci bir sözleşmeyi bilerek istiyorsanız `true`. `idempotency_key` ile birlikte kullanılamaz |
 
 **Cikti ornegi (`gonder: false`, varsayılan):**
 
 ```
 Sözleşme oluşturuldu: Kira Sözleşmesi 2026 [dem_789]
 Durum: Bekliyor
-Kredi harcandı: tek belgeli şablonda 1 kredi, çok belgeli zarfta imzacı başına atanan belge sayısına göre daha fazla (kademeli indirimli).
+Kredi harcandı: tutar imzacı sayısına, imza türüne, doğrulama yöntemine ve her imzacıya atanan belge sayısına göre hesaplanır. Güncel bakiye için whoami.
 
 Taraflar:
-- Ahmet Yilmaz
+- Ayşe Yılmaz
 
-Davet gönderilmedi. Taraflara imza daveti göndermek için gonder: true kullanın, hatirlatma_gonder aracıyla gönderin, ya da dashboard'daki sözleşme sayfasından davet edin.
+Davet gönderilmedi. Taraflara imza daveti İmzala.org panelindeki sözleşme sayfasından gönderilir. Bu aracı gonder: true ile yeniden çağırmayın; ikinci bir sözleşme oluşur.
 Sonuç sayfası: https://e.imzala.org/sonuc/dem_789
 ```
 
@@ -284,7 +356,7 @@ Sonuç sayfası: https://e.imzala.org/sonuc/dem_789
 
 Belge seçimi hatalarında araç ne yapılacağını söyleyen ayrı mesajlar döner: seçimde şablona ait olmayan ya da iki listede birden geçen kimlik, seçim sonrası belge kalmaması, bir role hiç belge düşmemesi (bu durumda sözleşme ya hiç oluşmaz ya da taslakta kalır, her iki halde de kredi harcanmaz), şablonun belge yapısının henüz hazır olmaması ve ilk belgenin kaynak dosyasının bulunmaması.
 
-> ⚠️ Bu araç **`demands:write`** kapsamı gerektirir. Salt-okunur bir anahtarla (`demands:read` / `templates:read`) çalışmaz, hata döner. Sablon_detay ile hangi `template_party_id` ve değişkenlerin gerektiğini önce öğrenin. Başarısızlıkta bu aracı körü körüne tekrar çağırmayın: her çağrı ayrı bir sözleşme ve ayrı bir kredi harcaması oluşturur (sunucu tarafında idempotent değildir).
+> ⚠️ Bu araç **`demands:write`** kapsamı gerektirir. Salt-okunur bir anahtarla (`demands:read` / `templates:read`) çalışmaz, hata döner. Sablon_detay ile hangi `template_party_id` ve değişkenlerin gerektiğini önce öğrenin. Başarısızlıkta bu aracı körü körüne tekrar çağırmayın: hata mesajı bir sözleşme kimliği veriyorsa sözleşme zaten oluşmuştur. Ayrıntı için "Hata durumlarında" bölümüne bakın.
 
 ---
 
@@ -306,10 +378,10 @@ Bir sözleşmede henüz imzalamamış taraflara **gerçek SMS ve e-posta hatırl
 Hatırlatma sonucu (sözleşme dem_789):
 1 taraf için hatırlatma gönderildi, 0 taraf için gönderilmedi.
 
-- Mehmet Demir: SMS: sent, E-posta: sent
+- Ayşe Yılmaz: SMS: sent, E-posta: sent
 ```
 
-> ⚠️ Bu araç **`demands:write`** kapsamı gerektirir ve **gerçek mesaj gönderir**; geri alınamaz, dikkatli kullanın. Anti-spam koruması vardır: aynı sözleşmeye 5 dakika içinde tekrar hatırlatma engellenir (`zorla: true` ile aşılabilir), kişi başına en fazla 3 SMS ve 3 e-posta gönderilir.
+> ⚠️ Bu araç **`demands:write`** kapsamı gerektirir ve **gerçek mesaj gönderir**; geri alınamaz, dikkatli kullanın. Hatırlatmalar yalnızca imza için bekleyen sözleşmenin taraflarına giden işlemsel bildirimlerdir; pazarlama ya da tanıtım içermez. Anti-spam koruması vardır: aynı sözleşmeye 5 dakika içinde tekrar hatırlatma engellenir (`zorla: true` ile aşılabilir), kişi başına en fazla 3 SMS ve 3 e-posta gönderilir. Taraflara henüz gönderilmemiş (taslak) ya da süresi dolmuş sözleşmeye hatırlatma yapılamaz.
 
 ---
 
@@ -317,46 +389,28 @@ Hatırlatma sonucu (sözleşme dem_789):
 
 ---
 
-## Zaman Damgasi Hakkinda Hukuki Not
+## Eser Tasdik Hakkında Hukuki Not
 
-`eser_tescil` RFC 3161 standardinda bir zaman damgasidir. Dosyanin belirtilen anda var olduğunu ve degismedigini ispat eder. Bu islem:
+`eser_tescil` aracı İmzala.org'un Eser Tasdik hizmetini çalıştırır. Araç adındaki "tescil" tarihsel bir addır; işlem bir tescil değildir. Hizmet, dosyanızın özetini bir zaman damgası sağlayıcısının ürettiği RFC 3161 zaman damgasıyla kayda alır. Bu kayıt, dosyanın en geç belirtilen anda var olduğunu ve o andan sonra değişmediğini teknik (kriptografik) olarak gösterir; bir uyuşmazlıktaki ispat değeri ilgili hukuki çerçeveye göre değerlendirilir.
 
-- Dijital veya elektronik imza degildir.
-- Nitelikli elektronik imza (QES) degildir.
-- Resmi eser sahipligi veya telif hakki tescili degildir.
+Bu işlem:
 
-Belirli bir hukuki amac icin kullanmadan once bagimsiz hukuki danisma alin.
+- Dijital imza ya da 5070 sayılı Kanun anlamında güvenli elektronik imza değildir; elle atılan imzanın yerine geçmez.
+- Eser sahipliğinin, telif hakkının ya da başka bir hakkın resmî tescili değildir; sahiplik bilgisi yalnızca beyanınızdır.
+- Noter onayı değildir.
+
+5070 sayılı Kanun'da zaman damgası, elektronik sertifika hizmet sağlayıcısının (ESHS) elektronik imzayla doğruladığı kayıttır. İmzala.org ESHS değildir ve zaman damgası satmaz; harcanan kredi Eser Tasdik hizmetinin karşılığıdır.
+
+Bu not hukuki danışmanlık değildir; belirli bir amaç için kullanmadan önce bir hukukçuya danışın.
 
 ---
 
-## Gelistirici Notu: Yayinlama
-
-### Zorunlu yayin-oncesi e2e gate
-
-`prepublishOnly` her `npm publish` oncesi sunu calistirir: **build + unit test + e2e gate**. E2E gate (`scripts/e2e-preflight.mjs`) yayinlanacak sunucunun ta kendisini (`dist/bin/stdio.js`) stdio uzerinden **gercek bir API anahtariyla gercek backend'e** karsi surer ve her aracin gercek ciktisini dogrular. Bir arac bozuksa (ornegin v1.0.0'da `eser_tescil` her yuklemede 500 veriyordu) publish **iptal** edilir.
-
-Yayinlamadan once gercek bir anahtar export edin:
+## Katkı ve test
 
 ```bash
-export IMZALA_E2E_API_KEY=imz_...                          # timestamps + templates + demands kapsamli
-export IMZALA_E2E_BASE_URL=https://test-api.imzala.org     # istege bagli (prod kredisi harcamamak icin test ortami)
-# istege bagli, sozlesme araclarini da test etmek icin:
-export IMZALA_E2E_DEMAND_ID=<demand-id>
-export IMZALA_E2E_COMPLETED_DEMAND_ID=<tamamlanmis-demand-id>
-
-npm publish --tag next     # prepublishOnly → build + test + e2e otomatik kosar
+npm install
+npm run typecheck
+npm test
 ```
 
-Gate'i tek basina calistirmak: `npm run e2e`. `eser_tescil` gercek zaman damgasi olusturur (~4 kredi); atlamak icin `IMZALA_E2E_SKIP_TIMESTAMP=1`. Acil durum bypass (yayin DOGRULANMADAN cikar): `IMZALA_E2E_SKIP=1`.
-
-### Release akisi
-
-```bash
-# Ön-sürüm olarak yayinla (e2e gate otomatik kosar)
-npm publish --tag next
-
-# Yeterli soak sonrasi stable'a yukselt
-npm dist-tag add @imzala/mcp-server@<v> latest
-```
-
-Bu komutlari yalnizca npm tokeni olan yetkili kullanici calistirir. MCP server kodu bu islemi yapmaz.
+Yayın adımları için `docs/RELEASING.md` dosyasına bakın.

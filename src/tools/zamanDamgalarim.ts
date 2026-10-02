@@ -13,7 +13,7 @@ export function registerZamanDamgalarim(server: McpServer, resolveClient: Resolv
     'zaman_damgalarim',
     {
       description:
-        'İmzala hesabındaki (veya organizasyon çalışma alanındaki) RFC 3161 zaman damgalarını (Eser Tasdik) listeler. Her kayıt için dosya adı, damga tarihi ve durum döner. Sözleşme tamamlanınca otomatik üretilen damgalar bu listede gösterilmez (onlar sözleşme sayfasından indirilir).',
+        'İmzala hesabındaki (veya organizasyon çalışma alanındaki) Eser Tasdik kayıtlarını listeler. Her kayıt için dosya adı, damga tarihi ve durum döner. Sözleşme tamamlanınca otomatik üretilen kayıtlar bu listede gösterilmez (onlar sözleşme sayfasından indirilir).',
       inputSchema: zamanDamgalarimInputSchema,
     },
     async (args) => {

@@ -9,7 +9,7 @@ const documentSelectionSchema = z.object({
 });
 
 const DOCUMENTS_DESCRIPTION =
-  'Bu istekte gönderilecek belgeleri şablonun varsayılanına göre değiştirir. Hiç göndermezseniz şablonun varsayılan belge kümesi gider. Çıkarılan belge imzacıya gösterilmez, imzalı PDF\'te ve tamamlanma sertifikasında yer almaz, kredi hesabına girmez. Sonuçta en az bir belge kalmalı ve eşlediğiniz her role en az bir belge düşmelidir. Belge kimliklerini sablon_detay ile alın (şablon kopyalandığında kimlikler değişir). Mevzuat gereği karşı tarafa verilmesi gereken belgeleri (ör. ön bilgilendirme formu, aydınlatma metni) başka bir kanaldan vermiyorsanız çıkarmayın; bu belgelerin verilmesi yükümlülüğü sözleşmeyi gönderene aittir.';
+  'Bu istekte gönderilecek belgeleri şablonun varsayılanına göre değiştirir. Hiç göndermezseniz şablonun varsayılan belge kümesi gider. Çıkarılan belge imzacıya gösterilmez, imzalı PDF\'te ve tamamlanma sertifikasında yer almaz, kredi hesabına girmez. Sonuçta en az bir belge kalmalı ve eşlediğiniz her role en az bir belge düşmelidir. Belge kimliklerini sablon_detay ile alın (şablon kopyalandığında kimlikler değişir). Mevzuat gereği karşı tarafa verilmesi gereken belgeleri (ör. ön bilgilendirme formu, aydınlatma metni) başka bir kanaldan vermiyorsanız çıkarmayın; bu belgelerin verilmesi yükümlülüğü sözleşmeyi gönderene aittir. (Yapay zekâ asistanına: zorunlu işaretli ya da bilgilendirme niteliğindeki bir belgeyi kullanıcı açıkça istemeden çıkarma; çıkarmadan önce bu uyarıyı kullanıcıya göster.)';
 
 const bulkRowSchema = z.object({
   party_mapping: z.array(z.any()).describe('Bu satırın taraf eşlemesi (sablondan_sozlesme_olustur ile aynı şekil: template_party_id + ad soyad + email/phone). template_party_id = sablon_detay çıktısındaki tam UUID; taraf adını/etiketini DEĞİL.'),
@@ -19,7 +19,7 @@ const bulkRowSchema = z.object({
 
 const bulkOptionsSchema = z.object({
   ordered: z.boolean().optional().describe('true verilirse taraflar sırayla imzalar (bir taraf imzalayana kadar sıradaki taraf imza davetini almaz)'),
-  sms_content: z.string().optional().describe('SMS davet metni özelleştirmesi (opsiyonel)'),
+  sms_content: z.string().optional().describe('SMS davet metni özelleştirmesi (opsiyonel). Yalnız imza davetine ilişkin işlemsel metin yazın; tanıtım içeriği eklenirse ticari ileti kurallarına (6563 sayılı Kanun) uyum sorumluluğu gönderendedir.'),
   language: z.string().optional().describe('Davet dili (opsiyonel, ör. tr)'),
 });
 
@@ -35,7 +35,7 @@ export function registerTopluSozlesmeGonder(server: McpServer, resolveClient: Re
     'toplu_sozlesme_gonder',
     {
       description:
-        "Tek şablondan en fazla 10 kişiye ayrı ayrı sözleşme oluşturur. Tek belgeli şablonda sözleşme başına 1 kredi harcar; çok belgeli zarfta maliyet imzacı başına atanan belge sayısına göre artar (kademeli indirimli). Harcama geri alınamaz. Varsayılan olarak sözleşmeleri oluşturur ama davet GÖNDERMEZ; `gonder: true` verirseniz her alıcıya hemen gerçek SMS ve e-posta imza daveti gönderilir (aynı anda 10 kişiye kadar). Önce sablon_detay ile şablonun alanlarını ve belgelerini öğren; çok belgeli şablonlarda her satır kendi `documents` seçimini taşıyabilir. Daha büyük listeleri 10'arlı parçalara böl. Alıcı ad, e-posta ve telefon bu araç üzerinden iletilir. Pazarlama değil, yalnızca imza daveti. (Yapay zeka asistanına: bu aracı kullanıcının açık onayı olmadan çağırma; özellikle 10 kişiye kadar gerçek SMS/e-posta gönderen `gonder: true` değerini ayarlamadan önce alıcı listesini ve gönderimi kullanıcıya tek tek doğrulat. Her satır ayrı kredi harcar (çok belgeli zarfta 1 kredinin üzerinde olabilir) ve geri alınamaz; başarısızlıkta bu aracı körü körüne TEKRAR çağırma.)",
+        "Tek şablondan en fazla 10 kişiye ayrı ayrı sözleşme oluşturur. Kredi harcar; tutar imzacı sayısına, imza türüne, doğrulama yöntemine ve her imzacıya atanan belge sayısına göre hesaplanır (tek sözleşme oluşturmayla aynı hesap). Harcanan kredi bu araçla geri alınmaz; iade yalnız belirli iptal ve silme hallerinde, hizmet koşullarına göre yapılır. Varsayılan olarak sözleşmeleri oluşturur ama davet GÖNDERMEZ; `gonder: true` verirseniz her alıcıya hemen gerçek SMS ve e-posta imza daveti gönderilir (aynı anda 10 kişiye kadar). Önce sablon_detay ile şablonun alanlarını ve belgelerini öğren; çok belgeli şablonlarda her satır kendi `documents` seçimini taşıyabilir. Daha büyük listeleri 10'arlı parçalara böl. Alıcı ad, e-posta ve telefon bu araç üzerinden iletilir. Pazarlama değil, yalnızca imza daveti. (Yapay zeka asistanına: bu aracı kullanıcının açık onayı olmadan çağırma; özellikle 10 kişiye kadar gerçek SMS/e-posta gönderen `gonder: true` değerini ayarlamadan önce alıcı listesini ve gönderimi kullanıcıya tek tek doğrulat. Her satır ayrı kredi harcar; başarısızlıkta bu aracı körü körüne TEKRAR çağırma, hatalı satırda sözleşme kimliği görünüyorsa o sözleşme taslak olarak oluşmuştur.)",
       inputSchema: topluSozlesmeGonderInputSchema,
     },
     async (args) => {

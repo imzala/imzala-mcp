@@ -53,7 +53,9 @@ describe('formatCreateDemand', () => {
     expect(out).not.toContain('imza/p1');
     expect(out).not.toContain('https://e.imzala.org/imza/p1');
     expect(out).toMatch(/gönderilmedi/i);
-    expect(out).toContain('1 kredi');
+    // No flat figure: the amount depends on signers, verification and documents.
+    expect(out).toContain('Kredi harcandı');
+    expect(out).not.toContain('1 kredi');
   });
   test('sent: shows dispatched count', () => {
     const out = formatCreateDemand({ ...RESULT, dispatched: 1 } as never, true);

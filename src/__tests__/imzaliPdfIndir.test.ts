@@ -3,23 +3,31 @@ import { makeClient } from '../client.js';
 
 const PDF_BYTES = Buffer.from('%PDF-1.7 fake', 'utf8');
 
-describe('downloadPdf', () => {
-  test('fetches url and returns Buffer', async () => {
+describe('downloadSignedPdf', () => {
+  test('GETs the scoped v1 endpoint with the API key and returns a Buffer', async () => {
     const fetchFn = vi.fn().mockResolvedValue({
       ok: true, status: 200,
       arrayBuffer: async () => PDF_BYTES.buffer.slice(PDF_BYTES.byteOffset, PDF_BYTES.byteOffset + PDF_BYTES.byteLength),
     });
     const c = makeClient({ apiKey: 'imz_x', baseUrl: 'https://api-prd.imzala.org', fetch: fetchFn as unknown as typeof fetch });
-    const buf = await c.downloadPdf('https://api-prd.imzala.org/sonuc/dem_1/pdf');
-    expect(fetchFn).toHaveBeenCalledWith('https://api-prd.imzala.org/sonuc/dem_1/pdf', { method: 'GET', headers: { 'User-Agent': 'imzala-mcp/1.8.0' } });
+    const buf = await c.downloadSignedPdf('dem_1');
+    const [url, opts] = fetchFn.mock.calls[0];
+    expect(url).toBe('https://api-prd.imzala.org/api/v1/demands/dem_1/pdf');
+    expect(opts.headers['X-API-Key']).toBe('imz_x');
     expect(Buffer.isBuffer(buf)).toBe(true);
     expect(buf.toString('utf8')).toContain('%PDF');
   });
 
-  test('throws ImzalaApiError on non-ok', async () => {
-    const fetchFn = vi.fn().mockResolvedValue({ ok: false, status: 202, json: async () => ({ error: 'sealing_pending' }) });
+  test('202 (sealing in progress) throws SEALING_PENDING even though res.ok is true', async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, status: 202, arrayBuffer: async () => Buffer.from('Belge mühürleniyor').buffer });
     const c = makeClient({ apiKey: 'imz_x', baseUrl: 'https://api-prd.imzala.org', fetch: fetchFn as unknown as typeof fetch });
-    await expect(c.downloadPdf('https://api-prd.imzala.org/sonuc/dem_1/pdf')).rejects.toMatchObject({ status: 202 });
+    await expect(c.downloadSignedPdf('dem_1')).rejects.toMatchObject({ status: 202, code: 'SEALING_PENDING' });
+  });
+
+  test('throws ImzalaApiError on non-ok', async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: false, status: 403, json: async () => ({ error: 'NOT_COMPLETED', message: 'x' }) });
+    const c = makeClient({ apiKey: 'imz_x', baseUrl: 'https://api-prd.imzala.org', fetch: fetchFn as unknown as typeof fetch });
+    await expect(c.downloadSignedPdf('dem_1')).rejects.toMatchObject({ status: 403, code: 'NOT_COMPLETED' });
   });
 });
 
@@ -50,7 +58,7 @@ describe('imzali_pdf_indir tool', () => {
     const demand = { id: 'd1', title: 'X', status: 'COMPLETED', created_at: '', completed_at: '', parties: [], result_url: 'r', pdf_url: 'https://api-prd.imzala.org/sonuc/d1/pdf' };
     const fetchFn = vi.fn()
       .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ success: true, data: demand }) })
-      .mockResolvedValueOnce({ ok: true, status: 200, arrayBuffer: async () => Buffer.from('%PDF-1.7', 'utf8').buffer });
+      .mockResolvedValueOnce({ ok: true, status: 200, arrayBuffer: async () => new Uint8Array(Buffer.from('%PDF-1.7', 'utf8')).buffer });
     const s = serverWith(fetchFn) as unknown as PrivateServer;
     const out = await s._registeredTools['imzali_pdf_indir'].handler({ demand_id: 'd1' });
     expect(out.isError).toBeUndefined();

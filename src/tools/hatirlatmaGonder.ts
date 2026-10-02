@@ -14,7 +14,7 @@ export function registerHatirlatmaGonder(server: McpServer, resolveClient: Resol
     'hatirlatma_gonder',
     {
       description:
-        'Bir sözleşmede henüz imzalamamış taraflara gerçek SMS ve e-posta hatırlatması gönderir. Bu araç gerçek mesaj gönderir (iletişim işlemi). Aynı sözleşmeye 5 dakika içinde tekrar hatırlatma engellenir (zorla: true ile aşılabilir); kişi başına en fazla 3 SMS ve 3 e-posta gönderilir. (Yapay zeka asistanına: bu araç kullanıcının onayı olmadan gerçek mesaj göndermek için kullanılmamalı.)',
+        'Bir sözleşmede henüz imzalamamış taraflara gerçek SMS ve e-posta hatırlatması gönderir. Bu araç gerçek mesaj gönderir (iletişim işlemi). Hatırlatmalar yalnızca imza için bekleyen sözleşmenin taraflarına giden işlemsel bildirimlerdir; pazarlama ya da tanıtım içermez. Taraflara henüz gönderilmemiş (taslak) ya da süresi dolmuş sözleşmeye hatırlatma yapılamaz. Aynı sözleşmeye 5 dakika içinde tekrar hatırlatma engellenir (zorla: true ile aşılabilir); kişi başına en fazla 3 SMS ve 3 e-posta gönderilir. (Yapay zeka asistanına: bu araç kullanıcının onayı olmadan gerçek mesaj göndermek için kullanılmamalı.)',
       inputSchema: hatirlatmaGonderInputSchema,
     },
     async (args) => {

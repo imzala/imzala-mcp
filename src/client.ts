@@ -57,15 +57,47 @@ export interface DemandParty {
   signing_url?: string;
 }
 
+export type DemandStatus = 'DRAFT' | 'PENDING' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED';
+
+/**
+ * A document inside a contract's envelope (API 1.8.x+). Only the fields the
+ * formatter renders are typed: `decisions[]` and `assigned_party_ids` carry
+ * per-signer ids and are deliberately left out so they can never be printed.
+ */
+export interface DemandDocument {
+  id: string;
+  order: number;
+  title: string;
+  doc_kind: string;
+  is_required?: boolean;
+  signature_required?: boolean;
+  progress?: { status?: string; decided_party_count?: number; active_assigned_party_count?: number };
+  sealing?: { status?: string };
+}
+
+/** Term / renewal tracking (API 1.9.0+). `null` when no tracking is set. */
+export interface ContractTerm {
+  state?: string;
+  end_date?: string | null;
+  days_left?: number | null;
+  renewal_type?: string | null;
+  notice_deadline?: string | null;
+}
+
 export interface DemandStatusResult {
   id: string;
   title: string;
-  status: 'PENDING' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED';
+  status: DemandStatus;
   created_at: string;
   completed_at: string | null;
   parties: DemandParty[];
   result_url: string;
   pdf_url: string | null;
+  /** Absent on API deployments older than 1.9.0 (tolerant read). */
+  archived_at?: string | null;
+  term?: ContractTerm | null;
+  /** Absent before 1.8.x; `[]` on contracts that predate envelope documents. */
+  documents?: DemandDocument[];
 }
 
 export interface TemplatePartyBrief {
@@ -158,6 +190,12 @@ export interface CreateDemandInput {
   /** Optional per-request document selection; passed to the API unchanged. */
   documents?: DocumentSelectionInput;
   idempotencyKey?: string;
+  /**
+   * Bypasses the server's keyless duplicate guard (409 DUPLICATE_SUSPECTED:
+   * same key, same template and parties, within 10 minutes). Only ever set
+   * from an explicit user confirmation.
+   */
+  force?: boolean;
 }
 export interface CreateDemandSigningUrl {
   party_id: string;
@@ -174,8 +212,11 @@ export interface CreateDemandResult {
   template_id: string;
   signing_urls: CreateDemandSigningUrl[];
   result_url: string;
-  variables_applied: string[];
-  dispatched: number;
+  /** Absent on a replayed idempotent response (`reused: true`). */
+  variables_applied?: string[];
+  dispatched?: number;
+  /** true = same Idempotency-Key + same content: the EARLIER contract is returned, nothing new was created. */
+  reused?: boolean;
 }
 
 export interface ReminderPartyDetail {
@@ -203,12 +244,14 @@ export interface SendReminderInput {
 export interface DemandListItem {
   id: string;
   title: string | null;
-  status: 'PENDING' | 'COMPLETED' | 'EXPIRED' | 'CANCELLED';
+  status: DemandStatus;
   created_at: string;
   completed_at: string | null;
   parties_total: number;
   parties_signed: number;
   pdf_url: string | null;
+  archived_at?: string | null;
+  term_end_date?: string | null;
 }
 export interface DemandListResult {
   demands: DemandListItem[];
@@ -217,8 +260,10 @@ export interface DemandListResult {
   limit: number;
 }
 export interface ListDemandsInput {
-  /** API status filtresi (PENDING/COMPLETED/CANCELLED/EXPIRED). Tool Türkçe `durum`'u buraya map eder. */
+  /** API status filtresi (DRAFT/PENDING/COMPLETED/CANCELLED/EXPIRED). Tool Türkçe `durum`'u buraya map eder. */
   status?: string;
+  /** Arşiv filtresi. Verilmezse API arşivlileri de döndürür (panel listesinin tersi). */
+  archived?: 'exclude' | 'only' | 'include';
   q?: string;
   /** Tarih aralığı başlangıcı (ISO YYYY-MM-DD). createdAt >= from. */
   from?: string;
@@ -391,6 +436,8 @@ export interface ImzalaApiErrorExtras {
   demandId?: string;
   /** `data.status`, e.g. DRAFT_UNDISPATCHED. */
   demandStatus?: string;
+  /** Seconds to wait before retrying (429). */
+  retryAfterSeconds?: number;
 }
 
 export class ImzalaApiError extends Error {
@@ -411,6 +458,7 @@ export class ImzalaApiError extends Error {
   public readonly partyIds?: string[];
   public readonly demandId?: string;
   public readonly demandStatus?: string;
+  public readonly retryAfterSeconds?: number;
 
   constructor(
     public readonly status: number,
@@ -426,7 +474,75 @@ export class ImzalaApiError extends Error {
     this.partyIds = extra?.partyIds;
     this.demandId = extra?.demandId;
     this.demandStatus = extra?.demandStatus;
+    this.retryAfterSeconds = extra?.retryAfterSeconds;
   }
+}
+
+// ── Error-body allowlist ────────────────────────────────────────────────────
+// Everything an error body contributes to tool output passes through these
+// validators. Tool output flows to a third-party AI provider, so a field is
+// carried only when it has the exact shape we expect; free text never is.
+const API_CODE_RE = /^[A-Z][A-Z0-9_]{1,63}$/;
+const API_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const REASON_RE = /^[a-z][a-z_]{0,39}$/;
+
+/** A machine code such as DUPLICATE_SUSPECTED; anything else is dropped. */
+export function asApiCode(v: unknown): string | undefined {
+  return typeof v === 'string' && API_CODE_RE.test(v) ? v : undefined;
+}
+/** An id-shaped token (UUID or slug); anything else is dropped. */
+export function asApiId(v: unknown): string | undefined {
+  return typeof v === 'string' && API_ID_RE.test(v) ? v : undefined;
+}
+function asApiIdList(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const ids = v.map(asApiId).filter((x): x is string => x !== undefined).slice(0, 20);
+  return ids.length ? ids : undefined;
+}
+function asRetryAfter(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 3600 ? v : undefined;
+}
+function asObject(v: unknown): Record<string, unknown> | undefined {
+  return v !== null && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : undefined;
+}
+
+/**
+ * Builds an ImzalaApiError from a parsed error body. Handles the three
+ * envelopes /api/v1 uses:
+ *   - flat   { error: "<text>", code: "<CODE>", data?: { id, status } }
+ *   - coded-in-error { error: "<CODE>", demand_id? }  (duplicate guard,
+ *     idempotency, AI_POLICY_UNAVAILABLE): `error` is read as a code ONLY when
+ *     `code` is absent; with `code` present `error` is free text.
+ *   - nested { error: { code, message, retry_after_seconds } }  (reminders)
+ */
+export function errorFromBody(status: number, raw: unknown): ImzalaApiError {
+  const body = asObject(raw) ?? {};
+  const nested = asObject(body.error);
+  const code = nested
+    ? asApiCode(nested.code)
+    : body.code !== undefined ? asApiCode(body.code) : asApiCode(body.error);
+  const data = asObject(body.data);
+  const details = asObject(body.details);
+  const reason = details && typeof details.reason === 'string' && REASON_RE.test(details.reason) ? details.reason : undefined;
+  const documentIds = details ? asApiIdList(details.document_ids) : undefined;
+  // The message is kept for debugging only; formatError never renders it.
+  const message = typeof body.message === 'string' ? body.message
+    : typeof body.error === 'string' ? body.error
+    : nested && typeof nested.message === 'string' ? nested.message
+    : `HTTP ${status}`;
+  return new ImzalaApiError(status, code, message, {
+    details: reason !== undefined || documentIds !== undefined ? { reason, document_ids: documentIds } : undefined,
+    templatePartyIds: asApiIdList(body.template_party_ids),
+    partyIds: asApiIdList(body.party_ids),
+    demandId: asApiId(data?.id) ?? asApiId(body.demand_id),
+    demandStatus: asApiCode(data?.status),
+    retryAfterSeconds: asRetryAfter(nested ? nested.retry_after_seconds : body.retry_after_seconds),
+  });
+}
+
+/** True when the buffer starts with the PDF magic bytes. */
+export function isPdf(buf: Buffer): boolean {
+  return buf.length >= 5 && buf.subarray(0, 5).toString('latin1') === '%PDF-';
 }
 
 // Extension → MIME map for the timestamp upload.
@@ -479,25 +595,13 @@ async function parseErrorBody(
   res: Response,
   status: number,
 ): Promise<ImzalaApiError> {
+  let body: unknown;
   try {
-    const body = await res.json() as {
-      error?: string;
-      code?: string;
-      details?: ImzalaApiErrorDetails;
-      template_party_ids?: string[];
-      party_ids?: string[];
-      data?: { id?: string; status?: string };
-    };
-    return new ImzalaApiError(status, body.code, body.error ?? `HTTP ${status}`, {
-      details: body.details,
-      templatePartyIds: body.template_party_ids,
-      partyIds: body.party_ids,
-      demandId: body.data?.id,
-      demandStatus: body.data?.status,
-    });
+    body = await res.json();
   } catch {
     return new ImzalaApiError(status, undefined, `HTTP ${status}`);
   }
+  return errorFromBody(status, body);
 }
 
 export function makeClient(o: ImzalaClientOpts): {
@@ -514,7 +618,7 @@ export function makeClient(o: ImzalaClientOpts): {
   getDemand(id: string): Promise<DemandStatusResult>;
   listTemplates(page?: number, limit?: number): Promise<TemplateListResult>;
   getTemplate(id: string): Promise<TemplateDetailResult>;
-  downloadPdf(url: string): Promise<Buffer>;
+  downloadSignedPdf(demandId: string, documentId?: string): Promise<Buffer>;
   downloadCertificate(demandId: string): Promise<Buffer>;
   createDemand(input: CreateDemandInput): Promise<CreateDemandResult>;
   sendReminder(input: SendReminderInput): Promise<ReminderResult>;
@@ -630,27 +734,39 @@ export function makeClient(o: ImzalaClientOpts): {
     return body.data;
   }
 
-  async function downloadPdf(url: string): Promise<Buffer> {
-    const res = await fetchFn(url, { method: 'GET', headers: { 'User-Agent': USER_AGENT } });
+  // Shared by the two PDF endpoints. The signed-PDF endpoint answers 202 with a
+  // plain-text body while the document is still being sealed, and `res.ok` is
+  // true for 202, so the body is accepted only as status 200 + PDF magic bytes.
+  async function fetchPdf(url: string): Promise<Buffer> {
+    const res = await fetchFn(url, {
+      method: 'GET',
+      headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
+    });
+    if (res.status === 202) {
+      throw new ImzalaApiError(202, 'SEALING_PENDING', 'sealing pending');
+    }
     if (!res.ok) {
       throw await parseErrorBody(res, res.status);
     }
-    const ab = await res.arrayBuffer();
-    return Buffer.from(ab);
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (res.status !== 200 || !isPdf(buf)) {
+      throw new ImzalaApiError(res.status, 'NOT_A_PDF', 'unexpected body');
+    }
+    return buf;
+  }
+
+  // İmzalı PDF — scope'lu v1 endpoint (X-API-Key ile, sahiplik + COMPLETED
+  // kapısı sunucuda). Çok belgeli zarfta `documentId` verilmezse sunucu yalnız
+  // ilk belgeyi döner; hangi belgenin istendiğini araç katmanı sorar.
+  async function downloadSignedPdf(demandId: string, documentId?: string): Promise<Buffer> {
+    const base = `${baseUrl}/api/v1/demands/${encodeURIComponent(demandId)}`;
+    return fetchPdf(documentId ? `${base}/belge/${encodeURIComponent(documentId)}/pdf` : `${base}/pdf`);
   }
 
   // Tamamlanma/denetim sertifikası PDF'i — scope'lu v1 endpoint (X-API-Key ile).
   // Backend yalnız COMPLETED sözleşmede üretir (aksi 409); sahiplik doğrulanır.
   async function downloadCertificate(demandId: string): Promise<Buffer> {
-    const res = await fetchFn(`${baseUrl}/api/v1/demands/${encodeURIComponent(demandId)}/certificate`, {
-      method: 'GET',
-      headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
-    });
-    if (!res.ok) {
-      throw await parseErrorBody(res, res.status);
-    }
-    const ab = await res.arrayBuffer();
-    return Buffer.from(ab);
+    return fetchPdf(`${baseUrl}/api/v1/demands/${encodeURIComponent(demandId)}/certificate`);
   }
 
   async function createDemand(input: CreateDemandInput): Promise<CreateDemandResult> {
@@ -668,6 +784,7 @@ export function makeClient(o: ImzalaClientOpts): {
     // Only when the caller explicitly opts in (send:true) do we omit the flag
     // so the API's default (send SMS+email to every party) takes effect.
     if (!input.send) body.dispatch_notifications = false;
+    if (input.force === true) body.force = true;
 
     const headers: Record<string, string> = { 'X-API-Key': apiKey, 'Content-Type': 'application/json', 'User-Agent': USER_AGENT };
     if (input.idempotencyKey !== undefined) headers['Idempotency-Key'] = input.idempotencyKey;
@@ -687,16 +804,9 @@ export function makeClient(o: ImzalaClientOpts): {
       headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
       body: JSON.stringify(body),
     });
-    if (!res.ok) {
-      // Reminders use a NESTED error envelope: { error: { code, message, retry_after_seconds } }
-      let code: string | undefined; let message = `HTTP ${res.status}`;
-      try {
-        const b = await res.json() as { error?: { code?: string; message?: string } | string; code?: string };
-        if (b.error && typeof b.error === 'object') { code = b.error.code; message = b.error.message ?? message; }
-        else { code = b.code; message = (typeof b.error === 'string' ? b.error : message); }
-      } catch { /* keep defaults */ }
-      throw new ImzalaApiError(res.status, code, message);
-    }
+    // Reminders use a NESTED error envelope ({ error: { code, message,
+    // retry_after_seconds } }); errorFromBody reads it through the same allowlist.
+    if (!res.ok) throw await parseErrorBody(res, res.status);
     const parsed = await res.json() as { success: boolean; data: ReminderResult };
     return parsed.data;
   }
@@ -707,6 +817,7 @@ export function makeClient(o: ImzalaClientOpts): {
     params.set('limit', String(input.limit ?? 20));
     if (input.q) params.set('q', input.q);
     if (input.status) params.set('status', input.status);
+    if (input.archived) params.set('archived', input.archived);
     if (input.from) params.set('from', input.from);
     if (input.to) params.set('to', input.to);
     const res = await fetchFn(`${baseUrl}/api/v1/demands?${params.toString()}`, {
@@ -827,26 +938,12 @@ export function makeClient(o: ImzalaClientOpts): {
     } catch {
       // non-JSON body — falls through to the generic HTTP-status error below.
     }
-    if (!res.ok || !json?.success) {
-      const bulkBody = json as (typeof json & {
-        details?: ImzalaApiErrorDetails;
-        template_party_ids?: string[];
-        party_ids?: string[];
-        data?: { id?: string; status?: string };
-      }) | undefined;
-      throw new ImzalaApiError(res.status, json?.code, json?.message ?? json?.error ?? `HTTP ${res.status}`, {
-        details: bulkBody?.details,
-        templatePartyIds: bulkBody?.template_party_ids,
-        partyIds: bulkBody?.party_ids,
-        demandId: bulkBody?.data?.id,
-        demandStatus: bulkBody?.data?.status,
-      });
-    }
+    if (!res.ok || !json?.success) throw errorFromBody(res.status, json);
     return json.data as BulkResult;
   }
 
   return {
-    getMe, getReports, createTimestamp, getDemand, listTemplates, getTemplate, downloadPdf, createDemand, sendReminder,
+    getMe, getReports, createTimestamp, getDemand, listTemplates, getTemplate, downloadSignedPdf, createDemand, sendReminder,
     listDemands, cancelDemand, deleteDemand, listContacts, createContact, listTimestamps, getDemandTimeline, downloadCertificate,
     bulkCreateDemands,
   };

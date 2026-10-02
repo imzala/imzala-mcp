@@ -154,12 +154,15 @@ describe('eser_tescil: happy path', () => {
     expect(await getHappyOutput()).toContain('zaman damgası');
   });
 
-  test('output contains "Kanıtlar"', async () => {
-    expect(await getHappyOutput()).toContain('Kanıtlar');
+  test('output states what the record shows', async () => {
+    expect(await getHappyOutput()).toContain('Gösterir:');
   });
 
-  test('output contains "Kanıtlamaz"', async () => {
-    expect(await getHappyOutput()).toContain('Kanıtlamaz');
+  test('output states what the record does not show, and that no timestamp is sold', async () => {
+    const out = await getHappyOutput();
+    expect(out).toContain('Göstermez:');
+    expect(out).toContain('ESHS değildir ve zaman damgası satmaz');
+    expect(out).not.toContain('QES');
   });
 
   test('output contains verify_url with ?seri=', async () => {
@@ -228,7 +231,7 @@ describe('eser_tescil: happy path', () => {
   test('main content contains "noter onayı veya telif tescili" in negation', async () => {
     const output = await getHappyOutput();
     const mainContent = output.replace(/\(Yapay zekâ asistanına:[\s\S]*\)$/, '').trim();
-    expect(mainContent).toContain('noter onayı veya telif tescili');
+    expect(mainContent).toContain('noter onayının, telif tescilinin');
   });
 
   test('main content has no positive claim: "noter onaylı"', async () => {
@@ -308,7 +311,7 @@ describe('eser_tescil: API error paths', () => {
     expect(result.content[0].text).not.toMatch(/https?:\/\//);
   });
 
-  test('503 TSA_UNAVAILABLE → isError, mentions kullanılamıyor', async () => {
+  test('503 TSA_UNAVAILABLE → isError, says it cannot complete right now', async () => {
     const result = await callHandler(
       makeResolveWithTimestamp(async () => {
         throw new ImzalaApiError(503, 'TSA_UNAVAILABLE', 'TSA down');
@@ -316,7 +319,7 @@ describe('eser_tescil: API error paths', () => {
       { file_base64: VALID_B64, file_name: 'test.pdf' },
     );
     expect(result.isError).toBe(true);
-    expect(result.content[0].text.toLowerCase()).toContain('kullanılamıyor');
+    expect(result.content[0].text.toLowerCase()).toContain('tamamlanamıyor');
   });
 
   test('422 BAD_BASE64 from API → isError, mentions base64', async () => {

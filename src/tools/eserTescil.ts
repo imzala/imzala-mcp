@@ -4,11 +4,11 @@ import type { ResolveClient } from './whoami.js';
 import { formatEserTescil, formatError } from '../format.js';
 
 export const eserTescilInputSchema = {
-  file_path: z.string().optional().describe('Zaman damgası uygulanacak dosyanın yerel yolu'),
+  file_path: z.string().optional().describe('Eser Tasdik kaydı oluşturulacak dosyanın yerel yolu'),
   file_base64: z
     .string()
     .optional()
-    .describe('Zaman damgası uygulanacak dosyanın standart canonical base64 içeriği (data-URL değil)'),
+    .describe('Eser Tasdik kaydı oluşturulacak dosyanın standart canonical base64 içeriği (data-URL değil)'),
   file_name: z.string().describe('Dosya adı (uzantı dahil, ör. belge.pdf)'),
   owner_first_name: z.string().optional().describe('Eser sahibinin adı (beyan)'),
   owner_last_name: z.string().optional().describe('Eser sahibinin soyadı (beyan)'),
@@ -62,7 +62,7 @@ export function registerEserTescil(server: McpServer, resolveClient: ResolveClie
     'eser_tescil',
     {
       description:
-        'RFC 3161 zaman damgası alır: dosyanın en geç belirtilen anda var olduğunu ve değişmediğini kriptografik olarak kanıtlar. Bu bir imza veya eser tescili DEĞİLDİR.',
+        'Eser Tasdik hizmeti: verdiğiniz dosya için bir kayıt oluşturur; dosyanın özeti (SHA-256) bir zaman damgası sağlayıcısının ürettiği RFC 3161 zaman damgasıyla damgalanır. Kayıt, dosyanın en geç belirtilen anda var olduğunu ve o andan sonra değişmediğini teknik (kriptografik) olarak gösterir. Kredi harcar. Araç adındaki "tescil" tarihsel bir addır: bu işlem eser, telif ya da başka bir hak tescili DEĞİLDİR, imza da değildir. İmzala.org ESHS değildir ve zaman damgası satmaz; kredi Eser Tasdik hizmetinin karşılığıdır. (Yapay zekâ asistanına: bu aracı kullanıcının açık onayı olmadan çağırma; sonucu "tescil edildi" diye sunma.)',
       inputSchema: eserTescilInputSchema,
     },
     async (args) => {

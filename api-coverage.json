@@ -1,0 +1,132 @@
+{
+  "specVersion": "1.9.3",
+  "specSha256": "83030537559d059f8c7334193e0ac9a7ce4a463249daf981abe7c15eb635f28b",
+  "operations": {
+    "GET /api/v1/templates": {
+      "tool": "sablonlarim"
+    },
+    "GET /api/v1/templates/{id}": {
+      "tool": "sablon_detay"
+    },
+    "PATCH /api/v1/templates/{id}": {
+      "excluded": "Şablon düzenleme panelden yapılır."
+    },
+    "DELETE /api/v1/templates/{id}": {
+      "excluded": "Şablon silme panelden yapılır."
+    },
+    "GET /api/v1/templates/{id}/usage": {
+      "excluded": "sablon_detay aynı bilgiyi (taraflar, değişkenler, belgeler) verir."
+    },
+    "POST /api/v1/demands": {
+      "tool": "sablondan_sozlesme_olustur"
+    },
+    "GET /api/v1/demands": {
+      "tool": "sozlesmelerim"
+    },
+    "POST /api/v1/demands/bulk": {
+      "tool": "toplu_sozlesme_gonder"
+    },
+    "GET /api/v1/demands/{id}": {
+      "tool": "sozlesme_durumu"
+    },
+    "DELETE /api/v1/demands/{id}": {
+      "tool": "sozlesme_sil"
+    },
+    "POST /api/v1/demands/{id}/reminders": {
+      "tool": "hatirlatma_gonder"
+    },
+    "POST /api/v1/demands/upload": {
+      "excluded": "Bu sürümde araç olarak sunulmaz; panelden yapılır."
+    },
+    "GET /api/v1/field-templates": {
+      "excluded": "Entegrasyon geliştiricilerine yönelik uç; yapay zekâ asistanı aracı olarak sunulmaz."
+    },
+    "GET /api/v1/field-templates/{id}": {
+      "excluded": "Entegrasyon geliştiricilerine yönelik uç; yapay zekâ asistanı aracı olarak sunulmaz."
+    },
+    "POST /api/v1/field-templates/{id}/preview-layout": {
+      "excluded": "Entegrasyon geliştiricilerine yönelik uç; yapay zekâ asistanı aracı olarak sunulmaz."
+    },
+    "POST /api/v1/demands/{id}/items": {
+      "excluded": "Entegrasyon geliştiricilerine yönelik uç; yapay zekâ asistanı aracı olarak sunulmaz."
+    },
+    "PATCH /api/v1/demands/{id}/items/{itemId}/stamp": {
+      "excluded": "Entegrasyon geliştiricilerine yönelik uç; yapay zekâ asistanı aracı olarak sunulmaz."
+    },
+    "POST /api/v1/demands/{id}/embed-session": {
+      "excluded": "Entegrasyon geliştiricilerine yönelik uç; yapay zekâ asistanı aracı olarak sunulmaz."
+    },
+    "GET /api/v1/demands/{id}/pdf": {
+      "tool": "imzali_pdf_indir"
+    },
+    "GET /api/v1/demands/{id}/belge/{document_id}/pdf": {
+      "tool": "imzali_pdf_indir"
+    },
+    "GET /api/v1/demands/{id}/certificate": {
+      "tool": "sozlesme_sertifikasi"
+    },
+    "GET /api/v1/demands/{id}/timeline": {
+      "tool": "sozlesme_audit"
+    },
+    "POST /api/v1/demands/{id}/cancel": {
+      "tool": "sozlesme_iptal"
+    },
+    "PATCH /api/v1/demands/{id}/term": {
+      "excluded": "Bu sürümde araç olarak sunulmaz; panelden yapılır."
+    },
+    "POST /api/v1/demands/{id}/archive": {
+      "excluded": "Bu sürümde araç olarak sunulmaz; panelden yapılır."
+    },
+    "POST /api/v1/demands/{id}/unarchive": {
+      "excluded": "Bu sürümde araç olarak sunulmaz; panelden yapılır."
+    },
+    "POST /api/v1/demands/{id}/parties/{partyId}/resend": {
+      "excluded": "Bu sürümde araç olarak sunulmaz; panelden yapılır."
+    },
+    "GET /api/v1/demands/{demandId}/documents": {
+      "excluded": "sozlesme_durumu zarf belgelerini gösterir."
+    },
+    "POST /api/v1/demands/{demandId}/documents": {
+      "excluded": "Entegrasyon geliştiricilerine yönelik uç; yapay zekâ asistanı aracı olarak sunulmaz."
+    },
+    "POST /api/v1/demands/{demandId}/documents/upload": {
+      "excluded": "Entegrasyon geliştiricilerine yönelik uç; yapay zekâ asistanı aracı olarak sunulmaz."
+    },
+    "PUT /api/v1/demands/{demandId}/documents/order": {
+      "excluded": "Entegrasyon geliştiricilerine yönelik uç; yapay zekâ asistanı aracı olarak sunulmaz."
+    },
+    "PATCH /api/v1/demands/{demandId}/documents/{docId}": {
+      "excluded": "Entegrasyon geliştiricilerine yönelik uç; yapay zekâ asistanı aracı olarak sunulmaz."
+    },
+    "DELETE /api/v1/demands/{demandId}/documents/{docId}": {
+      "excluded": "Entegrasyon geliştiricilerine yönelik uç; yapay zekâ asistanı aracı olarak sunulmaz."
+    },
+    "PUT /api/v1/demands/{demandId}/documents/{docId}/assignments": {
+      "excluded": "Entegrasyon geliştiricilerine yönelik uç; yapay zekâ asistanı aracı olarak sunulmaz."
+    },
+    "POST /api/v1/demands/{demandId}/dispatch": {
+      "excluded": "Bu sürümde araç olarak sunulmaz; panelden yapılır."
+    },
+    "GET /api/v1/me": {
+      "tool": "whoami"
+    },
+    "GET /api/v1/timestamps": {
+      "tool": "zaman_damgalarim"
+    },
+    "POST /api/v1/timestamps": {
+      "tool": "eser_tescil"
+    },
+    "GET /api/v1/timestamps/{id}": {
+      "excluded": "Bu sürümde araç olarak sunulmaz; panelden yapılır."
+    },
+    "GET /api/v1/reports": {
+      "tool": "raporlar"
+    },
+    "GET /api/v1/contacts": {
+      "tool": "kisilerim"
+    },
+    "POST /api/v1/contacts": {
+      "tool": "kisi_ekle"
+    }
+  }
+}
