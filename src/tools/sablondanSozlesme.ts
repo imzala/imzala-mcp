@@ -3,13 +3,14 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ResolveClient } from './whoami.js';
 import { formatCreateDemand, formatError } from '../format.js';
 
-const partySchema = z.object({
+export const partySchema = z.object({
   template_party_id: z.string().describe('Şablondaki tarafın tam kimliği (UUID). sablon_detay çıktısında her taraf için verilen "template_party_id" değerini AYNEN kullan; tarafın adını/etiketini (ör. "İmzalayan") DEĞİL.'),
   first_name: z.string(),
   last_name: z.string(),
   email: z.string().optional(),
   phone: z.string().optional(),
   variables: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().describe('Bu tarafa özel değişkenler'),
+  locale: z.enum(['tr', 'en']).optional().describe("İmza sayfasının başlangıç dili (tr veya en); imzacı sayfada değiştirebilir. Boş bırakılırsa şablondaki rolün varsayılan dili, o da yoksa tarayıcı dili İngilizce ise İngilizce, aksi halde Türkçe kullanılır. Bildirimler (e-posta, SMS) atanan dilde gider; dil atanmamışsa Türkçe gider. WhatsApp'ta İngilizce için kurumun onaylı İngilizce şablonu gerekir."),
 });
 
 const documentSelectionSchema = z.object({

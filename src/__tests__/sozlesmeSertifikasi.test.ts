@@ -20,7 +20,7 @@ describe('downloadCertificate', () => {
     const buf = await c.downloadCertificate('dmd 9/z');
     const [url, opts] = fetchFn.mock.calls[0];
     expect(url).toBe('https://api-prd.imzala.org/api/v1/demands/dmd%209%2Fz/certificate');
-    expect(opts).toEqual({ method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.9.0' } });
+    expect(opts).toEqual({ method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.10.0' } });
     expect(buf.equals(PDF)).toBe(true);
   });
 

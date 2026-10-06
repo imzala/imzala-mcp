@@ -181,6 +181,9 @@ export function formatError(e: unknown): string {
     const id = demandId ? ` Önceki sözleşmenin kimliği: ${demandId}.` : '';
     return `Bu idempotency_key daha önce bir sözleşme oluşturdu ve bu isteğin onunla aynı içerikte olduğu doğrulanamadı; yeni sözleşme oluşturulmadı.${id} Önce sozlesme_durumu ile o sözleşmeyi kontrol edin. Gerçekten yeni bir sözleşme gerekiyorsa farklı bir anahtar kullanın.`;
   }
+  if (code === 'INVALID_LOCALE') {
+    return 'İmzacı dili geçersiz: locale yalnız tr veya en olabilir (ya da hiç verilmez). Sözleşme oluşturulmadı, kredi düşülmedi.';
+  }
   if (code === 'INVALID_IDEMPOTENCY_KEY') {
     return 'idempotency_key biçimi geçersiz: 1-255 karakter, boşluksuz ve yalnız ASCII harf, rakam ya da noktalama içermeli (Türkçe karakter olmaz).';
   }
@@ -545,6 +548,11 @@ export function formatReminder(r: ReminderResult): string {
   const lines: string[] = [];
   lines.push(`Hatırlatma sonucu (sözleşme ${r.demand_id}):`);
   lines.push(`${r.reminders_sent} taraf için hatırlatma gönderildi, ${r.reminders_skipped} taraf için gönderilmedi.`);
+  if (typeof r.reminders_ineligible === 'number' && r.reminders_ineligible > 0) {
+    // Reddeden, açık düzeltme talebi olan ya da sırası gelmemiş taraflar (ör.
+    // onaylayan onayını beklerken imzacılar). Bunlar details[] içinde yer almaz.
+    lines.push(`${r.reminders_ineligible} taraf şu an hatırlatma almıyor (reddetmiş, açık düzeltme talebi var ya da davet sırası henüz gelmedi).`);
+  }
   lines.push('');
   for (const d of r.details) {
     const name = `${d.first_name} ${d.last_name}`.trim();
@@ -695,6 +703,7 @@ const AUDIT_EVENT_TR: Record<string, string> = {
   'demand.completed': 'Sözleşme tamamlandı',
   'demand.cancelled': 'Sözleşme iptal edildi',
   'party.rejected': 'Taraf reddetti',
+  REAPPROVAL_REQUIRED: 'Sözleşme değişti, onaylayanların yeniden onayı gerekiyor',
 };
 
 /**

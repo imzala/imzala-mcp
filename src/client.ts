@@ -180,6 +180,8 @@ export interface CreateDemandPartyMapping {
   email?: string;
   phone?: string;
   variables?: Record<string, string | number | boolean | null>;
+  /** İmzacı dili (API 1.10.0). Verilmezse şablon rolünün varsayılanı. */
+  locale?: 'tr' | 'en';
 }
 export interface CreateDemandInput {
   templateId: string;
@@ -232,6 +234,8 @@ export interface ReminderResult {
   channels_requested: string[];
   reminders_sent: number;
   reminders_skipped: number;
+  /** API 1.10.1+: parties that have not finished but get no reminder now. Absent on older deployments. */
+  reminders_ineligible?: number;
   details: ReminderPartyDetail[];
 }
 export interface SendReminderInput {

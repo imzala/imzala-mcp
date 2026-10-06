@@ -21,7 +21,7 @@ describe('listTimestamps', () => {
     await c.listTimestamps();
     const [url, opts] = fetchFn.mock.calls[0];
     expect(url).toBe('https://api-prd.imzala.org/api/v1/timestamps?page=1&limit=20');
-    expect(opts).toEqual({ method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.9.0' } });
+    expect(opts).toEqual({ method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.10.0' } });
   });
 
   test('threads page + limit', async () => {

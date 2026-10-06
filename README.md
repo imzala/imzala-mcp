@@ -331,7 +331,7 @@ Bir şablondan yeni sözleşme oluşturur. **Kredi harcar:** tutar imzacı sayı
 | Alan | Tip | Zorunlu | Aciklama |
 |------|-----|---------|----------|
 | `template_id` | `string` | Evet | Sözleşmenin oluşturulacağı şablonun kimliği |
-| `parties` | `array` | Evet | Taraflar. Her öğe: `template_party_id` (sablon_detay ile öğrenilir) + `first_name` + `last_name` + (`email` veya `phone`) + isteğe bağlı `variables` |
+| `parties` | `array` | Evet | Taraflar. Her öğe: `template_party_id` (sablon_detay ile öğrenilir) + `first_name` + `last_name` + (`email` veya `phone`) + isteğe bağlı `variables` + isteğe bağlı `locale` (`tr` veya `en`: imza sayfasının başlangıç dili, imzacı sayfada değiştirebilir; boş bırakılırsa şablondaki rolün varsayılanı, o da yoksa tarayıcı dili İngilizce ise İngilizce, aksi halde Türkçe. Bildirimler (e-posta, SMS) atanan dilde, dil atanmamışsa Türkçe gider). `toplu_sozlesme_gonder` aracının `party_mapping` öğeleri de aynı şemayı kullanır |
 | `variables` | `object` | Hayir | Şablon geneli değişkenler (slug: değer) |
 | `documents` | `object` | Hayir | Bu sözleşmede gönderilecek belgeleri seçer: `include` (varsayılanda gönderilmeyeni ekler) ve/veya `exclude` (varsayılanda gönderileni çıkarır), liste başına en fazla 20 belge kimliği. Verilmezse şablonun varsayılan belge kümesi gider |
 | `gonder` | `boolean` | Hayir | `true` verilirse taraflara HEMEN gerçek SMS ve e-posta daveti gönderilir. Varsayılan `false`: sadece oluşturur, mesaj göndermez |
@@ -382,6 +382,8 @@ Hatırlatma sonucu (sözleşme dem_789):
 ```
 
 > ⚠️ Bu araç **`demands:write`** kapsamı gerektirir ve **gerçek mesaj gönderir**; geri alınamaz, dikkatli kullanın. Hatırlatmalar yalnızca imza için bekleyen sözleşmenin taraflarına giden işlemsel bildirimlerdir; pazarlama ya da tanıtım içermez. Anti-spam koruması vardır: aynı sözleşmeye 5 dakika içinde tekrar hatırlatma engellenir (`zorla: true` ile aşılabilir), kişi başına en fazla 3 SMS ve 3 e-posta gönderilir. Taraflara henüz gönderilmemiş (taslak) ya da süresi dolmuş sözleşmeye hatırlatma yapılamaz.
+
+Hatırlatma yalnız davet sırası gelmiş taraflara gider. Reddetmiş, açık düzeltme talebi olan ya da sırası henüz gelmemiş taraflar (ör. sözleşmede onaylayan varsa, onaylayan onayını verene kadar imzacılar) hatırlatma almaz; araç bu tarafların sayısını ayrıca söyler.
 
 ---
 
