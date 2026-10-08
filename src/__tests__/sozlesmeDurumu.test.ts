@@ -1,3 +1,4 @@
+import { SERVER_VERSION } from '../version.js';
 import { describe, test, expect, vi } from 'vitest';
 import { makeClient } from '../client.js';
 import { formatContractStatus } from '../format.js';
@@ -27,7 +28,7 @@ describe('getDemand', () => {
     const res = await c.getDemand('dem_1');
     expect(fetchFn).toHaveBeenCalledWith(
       'https://api-prd.imzala.org/api/v1/demands/dem_1',
-      { method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.9.0' } },
+      { method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': `imzala-mcp/${SERVER_VERSION}` } },
     );
     expect(res.title).toBe('Kira Sözleşmesi');
     expect(res.parties).toHaveLength(2);

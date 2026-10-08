@@ -1,3 +1,4 @@
+import { SERVER_VERSION } from '../version.js';
 import { describe, test, expect, vi } from 'vitest';
 import { makeClient } from '../client.js';
 import { formatTemplateDetail } from '../format.js';
@@ -23,7 +24,7 @@ describe('getTemplate', () => {
     await c.getTemplate('t 1');
     expect(fetchFn).toHaveBeenCalledWith(
       'https://api-prd.imzala.org/api/v1/templates/t%201',
-      { method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.9.0' } },
+      { method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': `imzala-mcp/${SERVER_VERSION}` } },
     );
   });
 });

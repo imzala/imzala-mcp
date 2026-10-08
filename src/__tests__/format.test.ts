@@ -130,3 +130,13 @@ describe('formatError — redaction', () => {
     expect(text).not.toContain('    at ');
   });
 });
+
+ test.each([[503, 'DOCUMENT_VERIFICATION_DISABLED', 'Belge doğrulama'], [400, 'VERIFICATION_CONTEXT_REQUIRED', 'alıcı ve amaç']])('collection preflight %s %s is neutral and actionable', (status, code, expected) => {
+   const raw = 'PRIVATE_SOURCE_REASON identity barcode address';
+   const text = formatError(new ImzalaApiError(status as number, code as string, raw));
+   expect(text).toContain(expected);
+   expect(text).toContain('Sözleşme oluşturulmadı');
+   expect(text).toContain('tekrar denemeyin');
+   expect(text).not.toContain(raw);
+   expect(text).not.toContain('zaman damgası');
+ });

@@ -154,6 +154,12 @@ export function formatError(e: unknown): string {
       ? `Yetersiz kredi. ${draftNotice(demandId)} Kredi yükledikten sonra aynı taslağı panelden gönderebilirsiniz.`
       : 'Yetersiz kredi. İşlem yapılmadı (sözleşme ya da Eser Tasdik kaydı oluşturulmadı); kredi yükleyip yeniden deneyebilirsiniz.';
   }
+  if (code === 'DOCUMENT_VERIFICATION_DISABLED') {
+    return 'Belge doğrulama seçili şablon için şu anda kullanılamıyor. Sözleşme oluşturulmadı. Panelden Belge Toplama şablonunun seçimini ve doğrulama politikasını kontrol edin; aynı isteği otomatik tekrar denemeyin.';
+  }
+  if (code === 'VERIFICATION_CONTEXT_REQUIRED') {
+    return 'Seçili Belge Toplama şablonunun doğrulama ayarları geçersiz. Sözleşme oluşturulmadı. Panelden belge türü, politika, alıcı ve amaç alanlarını kontrol edin; ayarları düzeltmeden aynı isteği tekrar denemeyin.';
+  }
   if (code === 'TSA_UNAVAILABLE') {
     return 'Eser Tasdik işlemi şu an tamamlanamıyor (zaman damgası sağlayıcısına ulaşılamadı); lütfen biraz sonra tekrar deneyin.';
   }

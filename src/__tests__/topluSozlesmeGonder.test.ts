@@ -125,3 +125,20 @@ describe('toplu_sozlesme_gonder tool description', () => {
     expect(desc).not.toContain('—');
   });
 });
+
+test.each([[503, 'DOCUMENT_VERIFICATION_DISABLED'], [400, 'VERIFICATION_CONTEXT_REQUIRED']])('single and bulk tools handle inherited collection preflight %s %s', async (status, code) => {
+  const raw = 'PRIVATE_SOURCE_REASON';
+  for (const tool of ['sablondan_sozlesme_olustur', 'toplu_sozlesme_gonder']) {
+    const body = { success: false, error: code === 'DOCUMENT_VERIFICATION_DISABLED' ? code : raw, code };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: status as number }));
+    const server = createServer(makeTestOpts('imz_synthetic', fetchMock as unknown as typeof fetch));
+    const tools = (server as unknown as PrivateServer)._registeredTools;
+    const args = tool === 'toplu_sozlesme_gonder' ? { template_id: 't1', rows: [oneRow] } : { template_id: 't1', party_mapping: oneRow.party_mapping };
+    const result = await tools[tool].handler(args, {});
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('Sözleşme oluşturulmadı');
+    expect(result.content[0].text).not.toContain(raw);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).not.toHaveProperty('verification_only');
+  }
+});

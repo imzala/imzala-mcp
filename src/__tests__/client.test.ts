@@ -75,3 +75,10 @@ test('non-JSON error body maps to ImzalaApiError without throwing parse error', 
   });
   await expect(c.getMe()).rejects.toBeInstanceOf(ImzalaApiError);
 });
+
+test.each([[503, 'DOCUMENT_VERIFICATION_DISABLED', 'DOCUMENT_VERIFICATION_DISABLED'], [400, 'VERIFICATION_CONTEXT_REQUIRED', 'VERIFICATION_POLICY_CONFLICT']])('collection wrapper survives HTTP %s', async (status, code, reason) => {
+  const body = { success: false, error: reason, code };
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: status as number }));
+  const c = makeClient({ apiKey: 'imz_synthetic', baseUrl: 'https://x', fetch: fetchMock as any });
+  await expect(c.getMe()).rejects.toMatchObject({ status, code, message: reason });
+});
