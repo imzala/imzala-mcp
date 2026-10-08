@@ -791,10 +791,14 @@ paths:
           content:
             application/json:
               schema:
-                anyOf:
-                  - $ref: '#/components/schemas/CodedError'
-                  - $ref: '#/components/schemas/DocumentSelectionError'
-                  - $ref: '#/components/schemas/DocumentCollectionPolicyError'
+                $ref: '#/components/schemas/DemandCreationError'
+              examples:
+                invalidCollectionPolicy:
+                  summary: Seçili Belge Toplama politikası geçersiz; kaynak kod error alanında
+                  value:
+                    success: false
+                    code: VERIFICATION_CONTEXT_REQUIRED
+                    error: DOCUMENT_TYPE_INVALID
         '401':
           $ref: '#/components/responses/Unauthorized'
         '402':
@@ -952,7 +956,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DocumentVerificationDisabledError'
+                $ref: '#/components/schemas/DemandCreationError'
               example:
                 success: false
                 error: DOCUMENT_VERIFICATION_DISABLED
@@ -1509,10 +1513,14 @@ paths:
           content:
             application/json:
               schema:
-                anyOf:
-                  - $ref: '#/components/schemas/ApiError'
-                  - $ref: '#/components/schemas/CodedError'
-                  - $ref: '#/components/schemas/DocumentCollectionPolicyError'
+                $ref: '#/components/schemas/ApiV1DemandsBulkPost400Response'
+              examples:
+                invalidCollectionPolicy:
+                  summary: Seçili Belge Toplama politikası geçersiz; kaynak kod error alanında
+                  value:
+                    success: false
+                    code: VERIFICATION_CONTEXT_REQUIRED
+                    error: DOCUMENT_TYPE_INVALID
         '401':
           $ref: '#/components/responses/Unauthorized'
         '402':
@@ -1566,7 +1574,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DocumentVerificationDisabledError'
+                $ref: '#/components/schemas/DemandCreationError'
               example:
                 success: false
                 error: DOCUMENT_VERIFICATION_DISABLED
@@ -7457,6 +7465,55 @@ components:
           type: string
           nullable: true
           description: Talep oluşturulurken verilen dış referans.
+    ApiV1DemandsPost400Response:
+      description: |
+        Eski üretilmiş istemci türleri için belge seçimi uyumluluk görünümü.
+        Tüm HTTP 400 yanıtlarını sınırlamaz; taşıma zarfı DemandCreationError'dur.
+      anyOf:
+        - $ref: '#/components/schemas/CodedError'
+        - $ref: '#/components/schemas/DocumentSelectionError'
+    DemandCreationError:
+      type: object
+      description: |
+        Sözleşme oluşturma hatalarının açık taşıma zarfı. Alanlar hata türüne
+        göre bulunur; yeni makine kodları istemci tarafından reddedilmez.
+        Somut Belge Toplama zarfları DocumentCollectionPolicyError ve
+        DocumentVerificationDisabledError şemaları ile yanıt örneklerinde açıklanır.
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+        field:
+          type: string
+          nullable: true
+        details:
+          type: object
+          additionalProperties: true
+    ApiV1DemandsBulkPost400Response:
+      type: object
+      description: Toplu oluşturma ön kontrolünün açık hata zarfı; alanlar hata türüne göre bulunur.
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+        field:
+          type: string
+          nullable: true
+        details:
+          type: object
+          additionalProperties: true
     DocumentCollectionPolicyError:
       type: object
       description: Seçili Belge Toplama şablonunun politikası geçersiz; error kaynak makine kodudur.
