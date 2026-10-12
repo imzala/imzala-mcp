@@ -5,11 +5,11 @@
 openapi: 3.1.0
 info:
   title: imzala External API
-  version: 1.10.3
+  version: 1.10.5
   description: |
     imzala.org dış API'si — şablondan sözleşme oluşturma ve takip.
 
-    **Sürüm:** 1.10.3 · **Son güncelleme:** 2026-10-08
+    **Sürüm:** 1.10.5 · **Son güncelleme:** 2026-10-12
 
     ## Auth
     Tüm istekler `X-API-Key` header'ı gerektirir. API key dashboard üzerinden
@@ -917,6 +917,22 @@ paths:
             `DOCUMENT_SOURCE_UNAVAILABLE`: şablonun ilk belgesini çıkardınız
             ve kalan ilk belgenin kaynak dosyası yok; ilk belgeyi de gönderin
             ya da o belgeye dosya yükleyin.
+        '422':
+          description: |
+            `PARTY_PHONE_REQUIRED`: şablonda telefon doğrulaması açık ve
+            eşlenen bir tarafın cep telefonu numarası boş ya da geçersiz (E.164
+            biçimine çevrilemiyor). Taraf imza sırasında SMS kodu alamayacağı
+            için sözleşme davet gönderilmeden TASLAĞA düşürülür; kredi
+            düşülmez. Gövdede `party_ids` (taraf id'leri), `parties`
+            (`party_id`, `party_order`, `reason`: `MISSING` | `INVALID`) ve
+            `data.id` / `data.status: "DRAFT_UNDISPATCHED"` döner. Tarafa
+            numara ekleyip `POST /demands/{demandId}/dispatch` ile devam edin.
+            Yalnız davet gönderilecekse (`dispatch_notifications` `false`
+            DEĞİLSE) kontrol edilir; aksi hâlde kontrol `/dispatch`'te yapılır.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyPhoneRequired'
         '500':
           description: |
             `RECONCILE_FAILED`: kredi mutabakatı beklenmedik (kredi-dışı) bir
@@ -1144,6 +1160,12 @@ paths:
           döner; kontrol satır oluşturulmadan ÖNCE (`demand_id` YOK) veya
           oluşturulduktan hemen SONRA (sözleşme taslağa düşer, `demand_id` +
           `party_ids` döner) çalışabilir. Diğer satırlar etkilenmez.
+        - Taraf telefonu: şablonda telefon doğrulaması açık ve eşlenen bir
+          tarafın cep telefonu numarası boş ya da geçersizse (ve
+          `options.dispatch_notifications` `false` DEĞİLSE) o satır `failed`
+          (`error: "PARTY_PHONE_REQUIRED"`) döner; sözleşme taslağa düşer,
+          `demand_id` + `party_ids` döner, kredi düşülmez. Diğer satırlar
+          etkilenmez.
         - Belge seçimi satır başınadır: `rows[i].documents` (`POST /demands`
           ile aynı şema). `options.documents` gönderilirse 400
           `INVALID_DOCUMENT_SELECTION`. Satırın seçim hatası o satırı `failed`
@@ -1410,16 +1432,18 @@ paths:
                               format: uuid
                               description: >-
                                 status=created ise; veya status=failed olup sözleşme oluşturulduktan
-                                SONRA kredi mutabakatı reddettiyse ya da atamasız imzacı bulunduysa
-                                (taslak, davet gönderilmedi)
+                                SONRA kredi mutabakatı reddettiyse, atamasız imzacı ya da telefonu
+                                eksik taraf bulunduysa (taslak, davet gönderilmedi)
                             party_ids:
                               type: array
                               items:
                                 type: string
                                 format: uuid
                               description: >-
-                                Yalnız error=PARTY_WITHOUT_DOCUMENTS ve sözleşme oluşturulduktan
-                                SONRA tespit edildiyse: hiçbir belgeye atanmamış taraf id'leri.
+                                error=PARTY_WITHOUT_DOCUMENTS ve sözleşme oluşturulduktan SONRA
+                                tespit edildiyse: hiçbir belgeye atanmamış taraf id'leri.
+                                error=PARTY_PHONE_REQUIRED ise: telefonu eksik ya da geçersiz taraf
+                                id'leri.
                             template_party_ids:
                               type: array
                               items:
@@ -1477,7 +1501,8 @@ paths:
                                 INVALID_LOCALE, INSUFFICIENT_CREDITS, MEMBER_LIMIT_EXCEEDED,
                                 PARTY_WITHOUT_DOCUMENTS, INVALID_DOCUMENT_SELECTION,
                                 INVALID_DOCUMENT_VARIABLES, TEMPLATE_DOCUMENTS_NOT_READY,
-                                DOCUMENT_SOURCE_UNAVAILABLE, RECONCILE_FAILED, CREATE_FAILED vb.)
+                                DOCUMENT_SOURCE_UNAVAILABLE, RECONCILE_FAILED, PARTY_PHONE_REQUIRED,
+                                CREATE_FAILED vb.)
                             message:
                               type: string
                               description: status=failed ise açıklama
@@ -4021,11 +4046,30 @@ paths:
             gövdede atamasız taraf id'leri `party_ids` içinde döner.
             `PUT .../documents/{docId}/assignments` ile atamayı tamamlayıp
             tekrar deneyin.
+            `DOCUMENT_COLLECTION_PARTY_REQUIRED`: imzadan önce zorunlu belge
+            toplama açık, ancak belge istenecek hiçbir SIGNER seçilmemiş.
+            En az bir imzacıda `collect_documents=true` seçip tekrar deneyin.
+            Ön kontrol kredi mutabakatından önce yapılır. Eşzamanlı değişiklik
+            kilitli gönderim aşamasında da kontrol edilir; bu durumda yayın
+            damgası geri alınır ve davet gönderilmez.
             `ENVELOPE_CHANGED_DURING_DISPATCH`: kredi mutabakatı ile
             gönderim iddiası arasında zarf değiştirildi (ör. eşzamanlı bir
             istek belge/atama ekledi). Sunucu bunu kilit altında bir kez
             kendiliğinden yeniden dener; ikinci denemede de olursa bu kod
             döner. Sözleşme yayına GEÇMEDİ; istek güvenle tekrarlanabilir.
+        '422':
+          description: |
+            `PARTY_PHONE_REQUIRED`: sözleşmede telefon doğrulaması açık ve bir
+            tarafın cep telefonu numarası boş ya da geçersiz (E.164 biçimine
+            çevrilemiyor). Taraf imza sırasında SMS kodu alamayacağı için
+            gönderim reddedilir. Kredi ve iddiadan ÖNCE, yan etkisiz kontrol
+            edilir (kredi dokunulmaz, statü değişmez, davet gitmez). Gövdede
+            `party_ids` ve `parties` (`party_id`, `party_order`, `reason`:
+            `MISSING` | `INVALID`) döner. Tarafa numara ekleyip tekrar deneyin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyPhoneRequired'
         '429':
           description: |
             Tekrar-gönderim hız sınırı aşıldı — bu uç
@@ -6471,6 +6515,56 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FieldLayoutWarning'
+    PartyPhoneRequired:
+      type: object
+      description: |
+        Telefon doğrulaması açık bir sözleşmede telefonu eksik ya da geçersiz
+        taraf bulunduğunda dönen gövde (`PARTY_PHONE_REQUIRED`). Kredi
+        düşülmez, davet gönderilmez.
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: İnsan okunur açıklama
+        code:
+          type: string
+          enum:
+            - PARTY_PHONE_REQUIRED
+        message:
+          type: string
+        party_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        parties:
+          type: array
+          items:
+            type: object
+            properties:
+              party_id:
+                type: string
+                format: uuid
+              party_order:
+                type: integer
+              reason:
+                type: string
+                enum:
+                  - MISSING
+                  - INVALID
+        data:
+          type: object
+          description: Yalnız `POST /demands` yanıtında; sözleşme taslağa düşürüldü.
+          properties:
+            id:
+              type: string
+              format: uuid
+            status:
+              type: string
+              enum:
+                - DRAFT_UNDISPATCHED
     FieldTemplateParty:
       type: object
       description: |
