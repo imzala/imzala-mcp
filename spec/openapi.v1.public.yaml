@@ -5,11 +5,11 @@
 openapi: 3.1.0
 info:
   title: imzala External API
-  version: 1.10.5
+  version: 1.10.7
   description: |
     imzala.org dış API'si — şablondan sözleşme oluşturma ve takip.
 
-    **Sürüm:** 1.10.5 · **Son güncelleme:** 2026-10-12
+    **Sürüm:** 1.10.7 · **Son güncelleme:** 2026-10-13
 
     ## Auth
     Tüm istekler `X-API-Key` header'ı gerektirir. API key dashboard üzerinden
@@ -2621,6 +2621,13 @@ paths:
             position_y)` tuple'ında ikinci `signature` alanı yaratıldı.
             DB-level partial unique constraint engelledi. Pozisyonu
             değiştirip tekrar deneyin.
+
+            `APPROVER_CANNOT_HAVE_FIELDS`: bir öğe onaylayan (`APPROVER`)
+            rolündeki tarafa bağlanmak istendi. Onay bir imza değildir;
+            onaylayana imza, doldurulacak alan veya imzalayanın dolduracağı
+            kaşe (`FILLER_PROVIDES`) atanamaz. Hiçbir alan yazılmaz;
+            `details[].index` reddedilen öğeleri gösterir. Bu alanları
+            imzalayan bir tarafa atayın.
   /api/v1/demands/{id}/items/{itemId}/stamp:
     patch:
       tags:
@@ -3093,6 +3100,11 @@ paths:
         Bekleyen bir sözleşmeyi iptal eder (status=CANCELLED). Tamamlanmış
         (409) veya zaten iptal edilmiş (409) sözleşme iptal edilemez. Bekleyen
         hatırlatmalar iptal edilir.
+
+        Taraflara iptal bildirimi isteğe bağlıdır ve varsayılan olarak
+        gönderilmez. notify_parties true verilirse daveti ulaşmış taraflara
+        iptal bildirimi gider; gönderenin taraf için kapattığı kanal
+        kullanılmaz; bildirimde iptal gerekçesi yer almaz.
       parameters:
         - name: id
           in: path
@@ -3110,6 +3122,14 @@ paths:
                 reason:
                   type: string
                   description: İptal nedeni (opsiyonel)
+                notify_parties:
+                  type: boolean
+                  default: false
+                  description: |
+                    notify_parties true verilirse daveti ulaşmış taraflara iptal
+                    bildirimi gider; gönderenin taraf için kapattığı kanal
+                    kullanılmaz; bildirimde iptal gerekçesi yer almaz. Verilmezse
+                    ya da false ise bildirim gönderilmez.
       responses:
         '200':
           description: İptal edildi
