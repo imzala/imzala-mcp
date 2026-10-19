@@ -12,7 +12,7 @@ const NO_CREATE = /oluşturulmadı/;
 describe('CONSENT_SINGLE_PARTY', () => {
   test('tek sözleşme: kimliği korunur, oluşmadığı ve tekrar denenmemesi söylenir, ham metin basılmaz', () => {
     const msg = formatError(errorFromBody(400, { success: false, error: 'İç ayrıntı: zarf 23 belge', code: 'CONSENT_SINGLE_PARTY' }));
-    expect(msg).toMatch(/Açık rıza belgesi/);
+    expect(msg).toMatch(/açık rıza belgesi birden çok role atandığı/i);
     expect(msg).toMatch(NO_CREATE);
     expect(msg).toMatch(/kredi düşülmedi/);
     expect(msg).toMatch(/tekrar denemeyin/);
@@ -22,7 +22,7 @@ describe('CONSENT_SINGLE_PARTY', () => {
 
   test('toplu gönderim satırı: aynı küratörlü mesaj', () => {
     const msg = formatBulkRowError({ row_index: 0, status: 'failed', error: 'CONSENT_SINGLE_PARTY', message: 'ham metin' } as never);
-    expect(msg).toMatch(/Açık rıza belgesi/);
+    expect(msg).toMatch(/açık rıza belgesi birden çok role atandığı/i);
     expect(msg).not.toMatch(/ham metin/);
   });
 });
@@ -57,6 +57,20 @@ describe('Belge Toplama ön kontrolü', () => {
     const msg = formatError(e);
     expect(msg).not.toMatch(/Ayşe/);
     expect(msg).toMatch(/doğrulama ayarları geçersiz/);
+  });
+
+  test('prototip anahtarı kaynak kod olarak taşınmaz ve basılmaz', () => {
+    for (const key of ['__proto__', 'constructor', 'toString']) {
+      const e = errorFromBody(400, { success: false, code: 'VERIFICATION_CONTEXT_REQUIRED', error: key });
+      expect(e.sourceCode).toBeUndefined();
+      expect(formatError(e)).not.toMatch(/Sebep:/);
+    }
+  });
+
+  test('biçimlendirici kaynak kodu yeniden doğrular', () => {
+    const e = errorFromBody(400, { success: false, code: 'VERIFICATION_CONTEXT_REQUIRED', error: 'x' });
+    (e as unknown as { sourceCode: string }).sourceCode = 'constructor';
+    expect(formatError(e)).not.toMatch(/native code|Sebep:/);
   });
 
   test('kaynak kod yalnız VERIFICATION_CONTEXT_REQUIRED zarfında okunur', () => {

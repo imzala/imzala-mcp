@@ -164,10 +164,14 @@ export function formatError(e: unknown): string {
       : 'Yetersiz kredi. İşlem yapılmadı (sözleşme ya da Eser Tasdik kaydı oluşturulmadı); kredi yükleyip yeniden deneyebilirsiniz.';
   }
   if (code === 'DOCUMENT_VERIFICATION_DISABLED') {
-    return 'Belge doğrulama seçili şablon için şu anda kullanılamıyor. Sözleşme oluşturulmadı. Panelden Belge Toplama şablonunun seçimini ve doğrulama politikasını kontrol edin; aynı isteği otomatik tekrar denemeyin.';
+    return 'Belge doğrulama seçili şablon için şu anda kullanılamıyor. Sözleşme oluşturulmadı, kredi düşülmedi. Panelden Belge Toplama şablonunun seçimini ve doğrulama politikasını kontrol edin; aynı isteği otomatik tekrar denemeyin.';
   }
   if (code === 'VERIFICATION_CONTEXT_REQUIRED') {
-    const reason = e.sourceCode ? VERIFICATION_SOURCE_TR[e.sourceCode] : undefined;
+    // Alan yeniden doğrulanır: yalnız sözlüğün kendi anahtarları (prototip anahtarı değil).
+    const reason =
+      e.sourceCode && Object.prototype.hasOwnProperty.call(VERIFICATION_SOURCE_TR, e.sourceCode)
+        ? VERIFICATION_SOURCE_TR[e.sourceCode]
+        : undefined;
     const detail = reason ? ` Sebep: ${reason} (kod: ${e.sourceCode}).` : '';
     return `Seçili Belge Toplama şablonunun doğrulama ayarları geçersiz. Sözleşme oluşturulmadı, kredi düşülmedi.${detail} Panelden belge türü, politika, alıcı ve amaç alanlarını kontrol edin; ayarları düzeltmeden aynı isteği tekrar denemeyin.`;
   }
@@ -184,7 +188,7 @@ export function formatError(e: unknown): string {
     // API 1.11.0: an open-consent document is copied once per mapped signer.
     // The 400 means the copies push the envelope past its document limit (or,
     // on panel-side edits, a consent document has more than one signer).
-    return 'Açık rıza belgesi her imzacı için ayrı bir kopya olarak açılır ve bu kopyalarla sözleşmedeki belge sayısı sınırı (20) aşılıyor. Sözleşme oluşturulmadı, kredi düşülmedi. Daha az rol eşleyin ya da panelden şablondaki açık rıza belgesini tek role atayın. Aynı isteği değiştirmeden tekrar denemeyin; aynı hatayı alırsınız.';
+    return 'Şablondaki açık rıza belgesi birden çok role atandığı için eşlediğiniz her rol adına ayrı bir kopya açılır ve bu kopyalarla sözleşmedeki belge sayısı sınırı (20) aşılıyor. Sözleşme oluşturulmadı, kredi düşülmedi. Daha az rol eşleyin ya da panelden şablondaki açık rıza belgesini tek role atayın. Aynı isteği değiştirmeden tekrar denemeyin; aynı hatayı alırsınız.';
   }
   if (code === 'TSA_UNAVAILABLE') {
     return 'Eser Tasdik işlemi şu an tamamlanamıyor (zaman damgası sağlayıcısına ulaşılamadı); lütfen biraz sonra tekrar deneyin.';
@@ -431,7 +435,7 @@ export function formatContractStatus(d: DemandStatusResult): string {
   }
   if (d.documents?.some((doc) => doc.doc_kind === 'KVKK_CONSENT')) {
     // API 1.11.0: the public result page hides open-consent documents.
-    lines.push('Not: Açık rıza belgesi sonuç sayfasında gösterilmez; her imzacının rıza kararı kendi kopyasındadır ve diğer imzacılar bu kararı görmez.');
+    lines.push('Not: Açık rıza belgesi sonuç sayfasında gösterilmez. Her imzacıya yalnız kendisine atanmış açık rıza belgesi gösterilir; diğer imzacıların rıza kararları imzacılara gösterilmez. Rıza kayıtları İmzala.org panelinden ve tamamlanma sertifikasından izlenir.');
   }
   lines.push('');
   if (d.status !== 'DRAFT') lines.push(`Sonuç sayfası: ${d.result_url}`);

@@ -142,7 +142,7 @@ Araçlar sunucunun ham hata metnini aktarmaz; ne olduğunu ve sonraki adımı s�
 - **Mesaj bir sözleşme kimliği veriyorsa sözleşme oluşmuştur.** Kredi yetersizliği, üye aylık limiti ya da kredi mutabakatı hatasında sözleşme taslak olarak kalabilir ve davet gönderilmez. Aracı yeniden çağırmayın; taslak panelden gönderilir.
 - **Tekrar koruması.** `idempotency_key` vermeden aynı içerikle (aynı şablon, taraflar ve değişkenler) 10 dakika içinde ikinci bir sözleşme oluşturma isteği durdurulur ve mevcut sözleşmenin kimliği döner. Bu en iyi çaba korumasıdır, kesin bir engel değildir. İkinci sözleşmeyi bilerek istiyorsanız `tekrar_onayi: true` verin.
 - **`idempotency_key`.** Aynı anahtar ve aynı içerikle yapılan tekrar istek yeni sözleşme oluşturmaz, ilk sözleşmeyi döndürür. Anahtar 1-255 karakter, boşluksuz ve yalnız ASCII olmalıdır.
-- **Ayara bağlı hatalar.** Şablonun Belge Toplama ayarı ya da açık rıza belgesi yüzünden oluşturulamayan sözleşmede araç sözleşmenin oluşturulmadığını ve kredi düşülmediğini söyler. Bu hatalar aynı istek tekrarlanınca düzelmez: önce panelden şablonu düzeltin.
+- **Ayara bağlı hatalar.** Şablonun Belge Toplama ayarı ya da açık rıza belgesi yüzünden oluşturulamayan sözleşmede araç sözleşmenin oluşturulmadığını ve kredi düşülmediğini söyler. Bu hatalar aynı istek değiştirilmeden tekrarlanınca düzelmez: şablonu panelden düzeltin ya da isteği değiştirin (ör. daha az rol eşleyin).
 - **İstek sınırı.** Anahtar başına dakikada 60 istek; toplu gönderimde dakikada 5, Eser Tasdik işleminde dakikada 10. Aşıldığında araç kaç saniye beklemeniz gerektiğini söyler.
 
 ---
