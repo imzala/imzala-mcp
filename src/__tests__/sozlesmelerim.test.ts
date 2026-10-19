@@ -1,3 +1,4 @@
+import { SERVER_VERSION } from '../version.js';
 import { describe, test, expect, vi } from 'vitest';
 import { makeClient } from '../client.js';
 import { formatDemandList } from '../format.js';
@@ -21,7 +22,7 @@ describe('listDemands', () => {
     await c.listDemands();
     const [url, opts] = fetchFn.mock.calls[0];
     expect(url).toBe('https://api-prd.imzala.org/api/v1/demands?page=1&limit=20');
-    expect(opts).toEqual({ method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': 'imzala-mcp/1.9.0' } });
+    expect(opts).toEqual({ method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': `imzala-mcp/${SERVER_VERSION}` } });
   });
 
   test('threads status + q + page + limit into the query string', async () => {

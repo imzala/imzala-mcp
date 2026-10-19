@@ -5,11 +5,11 @@
 openapi: 3.1.0
 info:
   title: imzala External API
-  version: 1.9.3
+  version: 1.10.7
   description: |
     imzala.org dış API'si — şablondan sözleşme oluşturma ve takip.
 
-    **Sürüm:** 1.9.3 · **Son güncelleme:** 2026-09-29
+    **Sürüm:** 1.10.7 · **Son güncelleme:** 2026-10-13
 
     ## Auth
     Tüm istekler `X-API-Key` header'ı gerektirir. API key dashboard üzerinden
@@ -44,6 +44,23 @@ info:
     `POST /api/v1/demands` cevabında `variables_ignored` array'ı, gönderdiğiniz
     ama şablonda eşleşmeyen slug'ları listeler. Boş olmadığında yazım hatası
     yapmışsınız demektir — log'ta veya dashboard'da kontrol edin.
+
+    ## Onaylayan (onay adımı)
+    Şablonda bir taraf **Onaylayan** olarak işaretlenmişse, o şablondan
+    oluşturulan sözleşmede bu taraf belgeyi imzalamaz, onaylar. Onaylayan
+    içeren sözleşmelerde davetler iki aşamada gönderilir:
+    - Sözleşme oluşturulurken (`POST /api/v1/demands`,
+      `POST /api/v1/demands/bulk`) ve `POST /api/v1/demands/{demandId}/dispatch`
+      çağrıldığında önce yalnızca onay bekleyen onaylayanlar davet edilir.
+      Sıralı sözleşmede (`ordered: true`) onaylayanlar da kendi sıralarıyla
+      davet edilir.
+    - İmzacılar, tüm onaylayanlar onayladıktan sonra otomatik olarak davet
+      edilir.
+    - Bir onaylayan sözleşmeyi reddederse imzacılar davet edilmez;
+      `dispatch` çağrısı da kimseye davet göndermez.
+    - Onay vermiş bir onaylayan `dispatch` ile yeniden davet edilmez.
+
+    Onaylayan içermeyen sözleşmelerde davet davranışı değişmez.
 
     ## Rate Limit
     - Varsayılan: API anahtarı başına **60 istek/dakika**. Aşımda `429` döner ve
@@ -117,6 +134,10 @@ info:
       `skipped` olarak görünür (`reason: "party_sms_cap_reached (3)"` veya
       `"party_email_cap_reached (3)"`); diğer kişilere gönderim devam eder.
     - `force: true` bu kişi-başı sınırları override etmez.
+    - Hatırlatma yalnızca davet sırası gelmiş taraflara gönderilir. Onaylayan
+      onayını beklerken imzacılar, sıralı sözleşmede sırası henüz gelmemiş
+      taraflar ve bir onaylayan reddettiyse tüm taraflar `details[]` içinde
+      `skipped` olarak `reason: "party_not_eligible"` ile döner.
 
     ```bash
     # Default — SMS + e-posta birlikte (parti eligibility'sine göre)
@@ -569,6 +590,12 @@ paths:
         kaydeder, dynamic field'ları `variables` payload'undan doldurur ve
         imzalama URL'lerini döner.
 
+        **Onaylayan:** Şablonda Onaylayan olarak işaretlenmiş taraf varsa
+        oluşturma anında yalnızca onay bekleyen onaylayanlar davet edilir;
+        imzacılar tüm onaylayanlar onayladıktan sonra davet edilir, bir
+        onaylayan reddederse imzacılar davet edilmez. Ayrıntı: açıklamadaki
+        "Onaylayan (onay adımı)" bölümü.
+
         **Variable resolution:**
         - Item'ın `template_party_id` non-null → `party_mapping[i].variables`'ta
           o slug var ise oradan uygulanır
@@ -598,6 +625,14 @@ paths:
         atamalarını `PUT .../documents/{docId}/assignments` ile düzelttikten
         sonra `POST .../dispatch` ile gönderin (o uç aynı kapıyı yeniden
         uygular).
+        Belge Toplama ayarları, açıkça verilen ve tamamen devralınan seçimler
+        oluşturma, kredi işlemleri ve davetlerden önce doğrulanır. Etkin toplama
+        şablonsuzsa 400 `DOCUMENT_COLLECTION_TEMPLATE_REQUIRED` döner.
+        Seçili şablonda `SOURCE_AND_FIELDS` politikası doğrulama gerektirir;
+        `NONE` doğrulama kapalıyken de kullanılabilir. Geçerli doğrulama
+        politikası hizmette açık değilse 503 `DOCUMENT_VERIFICATION_DISABLED`
+        döner; politika sessizce değiştirilmez. Bu durumda seçimi/politikayı
+        veya hizmet kullanılabilirliğini düzeltin; isteği otomatik tekrarlamayın.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -704,6 +739,10 @@ paths:
             olmayan bir gün (ör. `2026-02-30`). Bu hatada `error` insan-okur
             mesajı, `code` alanı makinece okunur kodu taşır.
 
+            `INVALID_LOCALE`: `party_mapping[i].locale` `tr`, `en` veya `null`
+            değil. `error` hatalı alanın yolunu taşır; sözleşme oluşturulmaz,
+            kredi düşülmez.
+
             `INVALID_DOCUMENT_SELECTION`: belge seçimi hatası; `details.reason`
             şu değerlerden biridir: `shape` (biçim: nesne değil, bilinmeyen
             alan, kimlik metin değil, 20'den fazla kimlik), `unknown_document`
@@ -738,12 +777,28 @@ paths:
             `term_fixed_end_date` ile `term_duration_months` birlikte, veya
             `renewal_type: AUTO_RENEW` periyotsuz). `field` hangi anahtarın
             reddedildiğini gösterir.
+            Belge Toplama ön kontrolü: `INVALID_DOCUMENT_COLLECTION_TIMING`,
+            `INVALID_DOCUMENT_COLLECTION_FLAG`, `DOCUMENT_COLLECTION_TEMPLATE_REQUIRED`.
+            Seçili şablonun kalem politikası geçersizse `code` daima
+            `VERIFICATION_CONTEXT_REQUIRED`, `error` ise kaynak makine kodudur:
+            `DOCUMENT_TYPE_INVALID` (tür null veya `TR_RESIDENCE` değil),
+            `VERIFICATION_POLICY_INVALID` (politika `NONE` veya `SOURCE_AND_FIELDS` değil),
+            `VERIFICATION_INSTRUCTION_INVALID` (alıcı/amaç metin değil, çok uzun veya
+            kontrol/gizli yön karakteri içeriyor), `VERIFICATION_CONTEXT_REQUIRED`
+            (doğrulama için tür ya da açık alıcı/amaç eksik),
+            `VERIFICATION_POLICY_CONFLICT` (`NONE` ile dolu alıcı/amaç).
+            Bu zarfta `error` insan-okur metin değildir. Hiçbir sözleşme oluşturulmaz.
           content:
             application/json:
               schema:
-                anyOf:
-                  - $ref: '#/components/schemas/CodedError'
-                  - $ref: '#/components/schemas/DocumentSelectionError'
+                $ref: '#/components/schemas/DemandCreationError'
+              examples:
+                invalidCollectionPolicy:
+                  summary: Seçili Belge Toplama politikası geçersiz; kaynak kod error alanında
+                  value:
+                    success: false
+                    code: VERIFICATION_CONTEXT_REQUIRED
+                    error: DOCUMENT_TYPE_INVALID
         '401':
           $ref: '#/components/responses/Unauthorized'
         '402':
@@ -804,6 +859,18 @@ paths:
                     example: >-
                       SMS metnini özelleştirebilmek için organizasyonunuzun PRO veya ENTERPRISE
                       planda olması ve kendi SMS sağlayıcınızı tanımlamış olmanız gerekir.
+        '404':
+          description: |
+            Şablon bulunamadı veya bu çalışma alanına ait değil.
+            DOCUMENT_COLLECTION_TEMPLATE_NOT_FOUND: Belge Toplama seçimi
+            bulunamadı, arşivli, kapsam dışı veya kimlik metin değil.
+            Bu durumlar aynı kodu kullanır; hiçbir sözleşme oluşturulmaz.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ApiError'
+                  - $ref: '#/components/schemas/CodedError'
         '409':
           description: |
             Altı ayrı kod döner.
@@ -850,6 +917,22 @@ paths:
             `DOCUMENT_SOURCE_UNAVAILABLE`: şablonun ilk belgesini çıkardınız
             ve kalan ilk belgenin kaynak dosyası yok; ilk belgeyi de gönderin
             ya da o belgeye dosya yükleyin.
+        '422':
+          description: |
+            `PARTY_PHONE_REQUIRED`: şablonda telefon doğrulaması açık ve
+            eşlenen bir tarafın cep telefonu numarası boş ya da geçersiz (E.164
+            biçimine çevrilemiyor). Taraf imza sırasında SMS kodu alamayacağı
+            için sözleşme davet gönderilmeden TASLAĞA düşürülür; kredi
+            düşülmez. Gövdede `party_ids` (taraf id'leri), `parties`
+            (`party_id`, `party_order`, `reason`: `MISSING` | `INVALID`) ve
+            `data.id` / `data.status: "DRAFT_UNDISPATCHED"` döner. Tarafa
+            numara ekleyip `POST /demands/{demandId}/dispatch` ile devam edin.
+            Yalnız davet gönderilecekse (`dispatch_notifications` `false`
+            DEĞİLSE) kontrol edilir; aksi hâlde kontrol `/dispatch`'te yapılır.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyPhoneRequired'
         '500':
           description: |
             `RECONCILE_FAILED`: kredi mutabakatı beklenmedik (kredi-dışı) bir
@@ -880,6 +963,20 @@ paths:
                       status:
                         type: string
                         example: DRAFT_UNDISPATCHED
+        '503':
+          description: |
+            DOCUMENT_VERIFICATION_DISABLED: seçili veya devralınan şablonun
+            doğrulama politikası şu anda kullanılamıyor. Oluşturma, kredi
+            işlemleri ve davetlerden önce reddedilir; otomatik tekrar yerine
+            şablon seçimi/politikası veya hizmet kullanılabilirliği düzeltilir.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemandCreationError'
+              example:
+                success: false
+                error: DOCUMENT_VERIFICATION_DISABLED
+                code: DOCUMENT_VERIFICATION_DISABLED
     get:
       tags:
         - Demands
@@ -1025,6 +1122,11 @@ paths:
         her birine imza daveti gönderir (DocuSign "bulk send" modeli). Her
         satır bağımsız bir sözleşmedir; satır-başı kısmi başarı raporlanır.
 
+        **Onaylayan:** Şablonda Onaylayan olarak işaretlenmiş taraf varsa her
+        satırda önce yalnızca onay bekleyen onaylayanlar davet edilir;
+        imzacılar tüm onaylayanlar onayladıktan sonra davet edilir, bir
+        onaylayan reddederse imzacılar davet edilmez.
+
         **Davranış:**
         - `rows` en fazla 10 (aşarsa 400 `BULK_MAX_10`). Daha büyük listeler
           istemci tarafında 10'arlı parçalara bölünür.
@@ -1058,6 +1160,12 @@ paths:
           döner; kontrol satır oluşturulmadan ÖNCE (`demand_id` YOK) veya
           oluşturulduktan hemen SONRA (sözleşme taslağa düşer, `demand_id` +
           `party_ids` döner) çalışabilir. Diğer satırlar etkilenmez.
+        - Taraf telefonu: şablonda telefon doğrulaması açık ve eşlenen bir
+          tarafın cep telefonu numarası boş ya da geçersizse (ve
+          `options.dispatch_notifications` `false` DEĞİLSE) o satır `failed`
+          (`error: "PARTY_PHONE_REQUIRED"`) döner; sözleşme taslağa düşer,
+          `demand_id` + `party_ids` döner, kredi düşülmez. Diğer satırlar
+          etkilenmez.
         - Belge seçimi satır başınadır: `rows[i].documents` (`POST /demands`
           ile aynı şema). `options.documents` gönderilirse 400
           `INVALID_DOCUMENT_SELECTION`. Satırın seçim hatası o satırı `failed`
@@ -1075,8 +1183,18 @@ paths:
           başka workspace'in şablonu 404).
         - Kısmi başarı normaldir: batch tamamlanınca HTTP 200 döner (bazı
           satırlar `failed` olsa bile). Yalnızca ön-kontrol redleri
-          (cap/kredi/sahiplik) 400/402/404 döner.
+          (cap/kredi/sahiplik/Belge Toplama politikası) 400/402/404/503 döner.
+          Belge Toplama reddi HTTP 200 results[].failed sonucu değildir.
         - `X-Workspace-Id` header'ı ile organizasyon workspace'i seçilebilir.
+
+        Belge Toplama ayarları, açıkça verilen ve tamamen devralınan seçimler
+        oluşturma, kredi işlemleri ve davetlerden önce doğrulanır. Etkin toplama
+        şablonsuzsa 400 `DOCUMENT_COLLECTION_TEMPLATE_REQUIRED` döner.
+        Seçili şablonda `SOURCE_AND_FIELDS` politikası doğrulama gerektirir;
+        `NONE` doğrulama kapalıyken de kullanılabilir. Geçerli doğrulama
+        politikası hizmette açık değilse 503 `DOCUMENT_VERIFICATION_DISABLED`
+        döner; politika sessizce değiştirilmez. Bu durumda seçimi/politikayı
+        veya hizmet kullanılabilirliğini düzeltin; isteği otomatik tekrarlamayın.
 
         Rate limit: 5 istek/dakika (API key başına).
       requestBody:
@@ -1097,6 +1215,43 @@ paths:
                   type: object
                   description: Tüm satırlara uygulanan batch-seviye seçenekler (opsiyonel)
                   properties:
+                    document_collection_enabled:
+                      type: boolean
+                      nullable: true
+                      description: |
+                        Belge Toplama açılsın mı? Gönderilmezse veya null ise sözleşme
+                        şablonunun ayarı devralınır. Etkin değer true ise bir Belge Toplama
+                        şablonu gerekir. false devralınan toplamayı kapatır; açıkça verilen
+                        document_collection_template_id yine doğrulanır.
+                    document_collection_template_id:
+                      type: string
+                      format: uuid
+                      nullable: true
+                      description: |
+                        Mevcut Belge Toplama şablonunun kimliği. Gönderilmezse, null veya boş
+                        dize ise etkin toplama açıkken sözleşme şablonundaki seçim devralınır.
+                        Açıkça verilen dolu kimlik, toplama false olsa da doğrulanır. Seçim
+                        aktif ve aynı çalışma alanına ait olmalıdır; bulunamazsa, arşivliyse,
+                        kapsam dışıysa veya kimlik metin değilse 404
+                        DOCUMENT_COLLECTION_TEMPLATE_NOT_FOUND döner.
+                    document_collection_timing:
+                      type: string
+                      enum:
+                        - BEFORE_SIGNING
+                        - AFTER_SIGNING
+                      nullable: true
+                      description: |
+                        Toplama zamanı; gönderilmezse veya null ise sözleşme şablonunun ayarı
+                        devralınır. Geçersiz değer 400 INVALID_DOCUMENT_COLLECTION_TIMING döner.
+                    document_collection_block_signing:
+                      type: boolean
+                      nullable: true
+                      description: |
+                        Zorunlu belgeler tamamlanana kadar imzalamayı engelleme ayarı.
+                        Gönderilmezse veya null ise sözleşme şablonunun ayarı devralınır.
+                        Etkin AFTER_SIGNING zamanında true false olarak normalleştirilir.
+                        Boolean alanlara boolean veya null dışında değer verilirse 400
+                        INVALID_DOCUMENT_COLLECTION_FLAG döner.
                     dispatch_notifications:
                       type: boolean
                       default: true
@@ -1208,6 +1363,19 @@ paths:
                             send_email:
                               type: boolean
                               default: true
+                            locale:
+                              $ref: '#/components/schemas/SignerLocale'
+                              description: >-
+                                İmza sayfasının başlangıç dili (`tr` veya `en`); imzacı sayfada
+                                değiştirebilir. Gönderilmezse şablon rolünün varsayılan dili
+                                (`default_locale`), o da yoksa tarayıcı dili İngilizce ise
+                                İngilizce, aksi halde Türkçe kullanılır. `null` gönderilirse şablon
+                                varsayılanı uygulanmaz, dil tarayıcıya göre belirlenir. Bildirimler
+                                (e-posta, SMS) tarafa atanan dilde gider; dil atanmamışsa Türkçe
+                                gider. WhatsApp'ta İngilizce için kurumunuzun onaylı İngilizce
+                                şablonu gerekir. Geçersiz değer o satırı `failed` (`error:
+                                "INVALID_LOCALE"`) yapar, diğer satırlar etkilenmez.
+                              example: en
                             custom_message:
                               type: string
                               description: Bu tarafa özel davet mesajı
@@ -1264,16 +1432,18 @@ paths:
                               format: uuid
                               description: >-
                                 status=created ise; veya status=failed olup sözleşme oluşturulduktan
-                                SONRA kredi mutabakatı reddettiyse ya da atamasız imzacı bulunduysa
-                                (taslak, davet gönderilmedi)
+                                SONRA kredi mutabakatı reddettiyse, atamasız imzacı ya da telefonu
+                                eksik taraf bulunduysa (taslak, davet gönderilmedi)
                             party_ids:
                               type: array
                               items:
                                 type: string
                                 format: uuid
                               description: >-
-                                Yalnız error=PARTY_WITHOUT_DOCUMENTS ve sözleşme oluşturulduktan
-                                SONRA tespit edildiyse: hiçbir belgeye atanmamış taraf id'leri.
+                                error=PARTY_WITHOUT_DOCUMENTS ve sözleşme oluşturulduktan SONRA
+                                tespit edildiyse: hiçbir belgeye atanmamış taraf id'leri.
+                                error=PARTY_PHONE_REQUIRED ise: telefonu eksik ya da geçersiz taraf
+                                id'leri.
                             template_party_ids:
                               type: array
                               items:
@@ -1328,10 +1498,11 @@ paths:
                               type: string
                               description: >-
                                 status=failed ise makinece okunabilir kod (VALIDATION,
-                                INSUFFICIENT_CREDITS, MEMBER_LIMIT_EXCEEDED,
+                                INVALID_LOCALE, INSUFFICIENT_CREDITS, MEMBER_LIMIT_EXCEEDED,
                                 PARTY_WITHOUT_DOCUMENTS, INVALID_DOCUMENT_SELECTION,
                                 INVALID_DOCUMENT_VARIABLES, TEMPLATE_DOCUMENTS_NOT_READY,
-                                DOCUMENT_SOURCE_UNAVAILABLE, RECONCILE_FAILED, CREATE_FAILED vb.)
+                                DOCUMENT_SOURCE_UNAVAILABLE, RECONCILE_FAILED, PARTY_PHONE_REQUIRED,
+                                CREATE_FAILED vb.)
                             message:
                               type: string
                               description: status=failed ise açıklama
@@ -1353,10 +1524,28 @@ paths:
             `SIGNATURE_VARIANTS_PHONE_DRAW_EXCLUSIVE`: `phone_draw` başka bir
             yöntemle birlikte gönderildi. Batch-seviye kontrol olduğu için
             hiçbir satır oluşturulmaz.
+            Belge Toplama ön kontrolü: `INVALID_DOCUMENT_COLLECTION_TIMING`,
+            `INVALID_DOCUMENT_COLLECTION_FLAG`, `DOCUMENT_COLLECTION_TEMPLATE_REQUIRED`.
+            Seçili şablonun kalem politikası geçersizse `code` daima
+            `VERIFICATION_CONTEXT_REQUIRED`, `error` ise kaynak makine kodudur:
+            `DOCUMENT_TYPE_INVALID` (tür null veya `TR_RESIDENCE` değil),
+            `VERIFICATION_POLICY_INVALID` (politika `NONE` veya `SOURCE_AND_FIELDS` değil),
+            `VERIFICATION_INSTRUCTION_INVALID` (alıcı/amaç metin değil, çok uzun veya
+            kontrol/gizli yön karakteri içeriyor), `VERIFICATION_CONTEXT_REQUIRED`
+            (doğrulama için tür ya da açık alıcı/amaç eksik),
+            `VERIFICATION_POLICY_CONFLICT` (`NONE` ile dolu alıcı/amaç).
+            Bu zarfta `error` insan-okur metin değildir. Hiçbir sözleşme oluşturulmaz.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: '#/components/schemas/ApiV1DemandsBulkPost400Response'
+              examples:
+                invalidCollectionPolicy:
+                  summary: Seçili Belge Toplama politikası geçersiz; kaynak kod error alanında
+                  value:
+                    success: false
+                    code: VERIFICATION_CONTEXT_REQUIRED
+                    error: DOCUMENT_TYPE_INVALID
         '401':
           $ref: '#/components/responses/Unauthorized'
         '402':
@@ -1376,7 +1565,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
         '404':
-          $ref: '#/components/responses/NotFound'
+          description: |
+            Şablon bulunamadı veya bu çalışma alanına ait değil.
+            DOCUMENT_COLLECTION_TEMPLATE_NOT_FOUND: Belge Toplama seçimi
+            bulunamadı, arşivli, kapsam dışı veya kimlik metin değil.
+            Bu durumlar aynı kodu kullanır; hiçbir sözleşme oluşturulmaz.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ApiError'
+                  - $ref: '#/components/schemas/CodedError'
         '409':
           description: |
             `QES_NOT_SUPPORTED_MULTI_DOCUMENT`: güvenli elektronik imza birden
@@ -1391,6 +1590,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '503':
+          description: |
+            DOCUMENT_VERIFICATION_DISABLED: seçili veya devralınan şablonun
+            doğrulama politikası şu anda kullanılamıyor. Oluşturma, kredi
+            işlemleri ve davetlerden önce reddedilir; otomatik tekrar yerine
+            şablon seçimi/politikası veya hizmet kullanılabilirliği düzeltilir.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemandCreationError'
+              example:
+                success: false
+                error: DOCUMENT_VERIFICATION_DISABLED
+                code: DOCUMENT_VERIFICATION_DISABLED
   /api/v1/demands/{id}:
     get:
       tags:
@@ -1491,6 +1704,15 @@ paths:
         `reminder_settings` ayarından **bağımsız** olarak çalışır — istediğiniz
         zaman elle tetiklenebilir.
 
+        **Kimlere gitmez:** İmzayı reddetmiş, onayını vermiş, açık düzeltme
+        talebi olan, imza alanı olmayan (bilgi tarafı) taraflara ve imza ekranı
+        henüz açılmamış taraflara (sıralı imzada sırası gelmemiş; onay bekleyen
+        bir onaylayan varken imzacılar) hatırlatma gönderilmez; bu taraflar
+        `details[]` içinde yer almaz, sayıları `reminders_ineligible` alanında
+        döner. Onay bekleyen onaylayan hatırlatma alır. Çok belgeli zarfta bir
+        taraf, zarftaki tüm belgelere kararını verene kadar hatırlatma almaya
+        devam eder.
+
         **Anti-spam koruması:** Aynı sözleşme için son hatırlatmanın üzerinden
         5 dakika geçmemişse 429 `RATE_LIMITED` döner ve `Retry-After` header'ı
         ile `retry_after_seconds` alanı bilgilendirir. Override için body'de
@@ -1510,6 +1732,12 @@ paths:
           cap'i ASLA — sert kural.
         - Sözleşme başına global cap pratikte yok (`999` safety net) — kural
           kişi başınadır.
+
+        **Davet sırası:** Hatırlatma yalnızca davet sırası gelmiş taraflara
+        gönderilir. Onaylayan onayını beklerken imzacılar, sıralı sözleşmede
+        sırası henüz gelmemiş taraflar ve bir onaylayan reddettiyse tüm
+        taraflar `details[]` içinde `skipped` olarak
+        `reason: "party_not_eligible"` ile döner.
 
         Sayım kaynağı: `ReminderLog` tablosu (channel + party_id, `status='SENT'`).
         Hem otomatik scheduled (ReminderWorker) hem manuel trigger reminders
@@ -1577,6 +1805,15 @@ paths:
                       demand_id:
                         type: string
                         format: uuid
+                      reminders_ineligible:
+                        type: integer
+                        minimum: 0
+                        description: |
+                          İmzasını veya onayını tamamlamamış ama bu çağrıda
+                          hatırlatma almayan taraf sayısı (reddetmiş, açık
+                          düzeltme talebi olan ya da imza ekranı henüz açılmamış).
+                          Gönderim sayısı 0 iken sözleşmenin tamamlanıp
+                          tamamlanmadığını ayırt etmek için kullanılabilir.
                       dispatched:
                         type: array
                         items:
@@ -1635,7 +1872,9 @@ paths:
         '409':
           description: |
             **ALREADY_COMPLETED** — Tüm taraflar imzalamış. Hatırlatılacak
-            imzalanmamış parti yok.
+            imzalanmamış parti yok. İmzalamamış taraf varsa ama hiçbiri
+            hatırlatma almıyorsa (ör. yalnız reddeden taraf kaldıysa) bu kod
+            dönmez; yanıt 200 ve gönderim sayısı 0 olur.
 
             **DEMAND_NOT_DISPATCHED**: sözleşme henüz imzaya gönderilmedi (taslak).
 
@@ -1754,6 +1993,12 @@ paths:
                     `field_template_id` gönderildiğinde her party AYRICA
                     `template_party_id` (Alan Şablonu rolü) taşımak zorundadır
                     ve şablondaki her rol tam olarak bir kez eşlenmelidir.
+
+                    Opsiyonel `locale` (`tr`, `en` veya `null`): imzacının
+                    dijital imza sayfasını ve bildirimlerini göreceği dil (bkz.
+                    `PartyMappingInput.locale`). Alan Şablonu kullanılırken
+                    gönderilmezse rolün varsayılan dili uygulanır. Geçersiz
+                    değer `400 INVALID_LOCALE` döner, sözleşme oluşturulmaz.
                   example: '[{"first_name":"Ayşe","last_name":"Yılmaz","email":"ayse@example.com"}]'
                 field_template_id:
                   type: string
@@ -2376,6 +2621,13 @@ paths:
             position_y)` tuple'ında ikinci `signature` alanı yaratıldı.
             DB-level partial unique constraint engelledi. Pozisyonu
             değiştirip tekrar deneyin.
+
+            `APPROVER_CANNOT_HAVE_FIELDS`: bir öğe onaylayan (`APPROVER`)
+            rolündeki tarafa bağlanmak istendi. Onay bir imza değildir;
+            onaylayana imza, doldurulacak alan veya imzalayanın dolduracağı
+            kaşe (`FILLER_PROVIDES`) atanamaz. Hiçbir alan yazılmaz;
+            `details[].index` reddedilen öğeleri gösterir. Bu alanları
+            imzalayan bir tarafa atayın.
   /api/v1/demands/{id}/items/{itemId}/stamp:
     patch:
       tags:
@@ -2572,6 +2824,13 @@ paths:
                     Token üretilecek tarafın ID'si. `POST /api/v1/demands` veya
                     `GET /api/v1/demands/{id}` cevabındaki `signing_urls[].party_id`
                     alanından alınır.
+                locale:
+                  $ref: '#/components/schemas/SignerLocale'
+                  description: >-
+                    Gömülü imza sayfasının dili. Verilirse `embed_url` `lang` parametresi taşır.
+                    Kaydedilmez; tarafın kayıtlı dilini değiştirmez. Geçersiz değer `400
+                    INVALID_LOCALE` döner.
+                  example: en
             example:
               party_id: f47ac10b-58cc-4372-a567-0e02b2c3d479
       responses:
@@ -2606,7 +2865,8 @@ paths:
                         example: https://e.imzala.org/embed/sign?token=emb_a1b2c3d4e5f6...
         '400':
           description: |
-            `party_id` eksik veya geçersiz format.
+            `party_id` eksik veya geçersiz format. `INVALID_LOCALE` (`code`
+            alanında): `locale` `tr`, `en` veya `null` değil.
           content:
             application/json:
               schema:
@@ -2779,7 +3039,10 @@ paths:
         `COMPLETED`, `OTP_SENT` (SMS doğrulama kodu gönderildi), `OTP_VERIFIED`
         (SMS doğrulama kodu doğrulandı), `OTP_LOCKED` (deneme sınırı doldu),
         `MOBILE_SIGNATURE_CAPTURED` (imza QR kod ile telefonda çizildi; bu
-        olayın `ip_masked` ve `device_label` alanları telefona aittir).
+        olayın `ip_masked` ve `device_label` alanları telefona aittir),
+        `REAPPROVAL_REQUIRED` (gönderen açık bir değişiklik talebi sırasında
+        sözleşme içeriğini güncelledi, önceki onaylar sıfırlandı ve
+        onaylayanların yeniden onay vermesi gerekiyor).
         Liste ileride genişleyebilir; tanımadığınız değeri yok saymanız önerilir.
       parameters:
         - name: id
@@ -2837,6 +3100,11 @@ paths:
         Bekleyen bir sözleşmeyi iptal eder (status=CANCELLED). Tamamlanmış
         (409) veya zaten iptal edilmiş (409) sözleşme iptal edilemez. Bekleyen
         hatırlatmalar iptal edilir.
+
+        Taraflara iptal bildirimi isteğe bağlıdır ve varsayılan olarak
+        gönderilmez. notify_parties true verilirse daveti ulaşmış taraflara
+        iptal bildirimi gider; gönderenin taraf için kapattığı kanal
+        kullanılmaz; bildirimde iptal gerekçesi yer almaz.
       parameters:
         - name: id
           in: path
@@ -2854,6 +3122,14 @@ paths:
                 reason:
                   type: string
                   description: İptal nedeni (opsiyonel)
+                notify_parties:
+                  type: boolean
+                  default: false
+                  description: |
+                    notify_parties true verilirse daveti ulaşmış taraflara iptal
+                    bildirimi gider; gönderenin taraf için kapattığı kanal
+                    kullanılmaz; bildirimde iptal gerekçesi yer almaz. Verilmezse
+                    ya da false ise bildirim gönderilmez.
       responses:
         '200':
           description: İptal edildi
@@ -3044,8 +3320,10 @@ paths:
       x-required-scope: demands:write
       description: |
         Belirtilen tarafa imza davetini (SMS/e-posta/WhatsApp, sözleşme
-        ayarına göre) tekrar gönderir. İmzalamış/reddetmiş tarafa veya sıralı
-        imzada sırası gelmemiş tarafa gönderilemez (409).
+        ayarına göre) tekrar gönderir. İmzalamış/reddetmiş tarafa, onayını
+        vermiş onaylayana, açık düzeltme talebi olan tarafa veya sıralı imzada
+        sırası gelmemiş tarafa gönderilemez (409). Sıralı imzada onaylayanın onayı o adımı tamamlar;
+        sıra bir sonraki tarafa geçer.
       parameters:
         - name: id
           in: path
@@ -3082,8 +3360,15 @@ paths:
         '409':
           description: |
             Tekrar gönderim yapılamaz. `error` insan-okur mesajı taşır.
-            - İmzalamış, reddetmiş veya sıralı imzada sırası gelmemiş taraf
-              (`code` alanı yok)
+            - İmzalamış veya reddetmiş taraf (`code` alanı yok)
+            - `CHANGE_REQUEST_PENDING`: tarafın açık bir düzeltme talebi var;
+              talep çözüldükten sonra tekrar gönderilebilir
+            - `PARTY_NOT_ELIGIBLE`: tarafa şu an davet gönderilemez. Şu
+              durumlarda döner: taraf zaten onay vermiş bir onaylayan
+              olduğunda, sözleşme bir onaylayanın reddiyle durdurulduğunda,
+              onaylayan katmanının onayı tamamlanmadan imzacıya gönderim
+              denendiğinde veya sıralı imzada henüz bu tarafın sırası
+              gelmediğinde.
             - `DEMAND_NOT_DISPATCHED`: sözleşme henüz imzaya gönderilmedi (taslak)
             - `DEMAND_NOT_DISPATCHABLE`: sözleşme tamamlanmış veya iptal edilmiş
             - `DEMAND_EXPIRED`: sözleşmenin imza süresi geçmiş
@@ -3605,6 +3890,11 @@ paths:
         sözleşmeyi `PENDING`'e alır ve tarafları imza daveti (SMS/e-posta/
         WhatsApp) ile bilgilendirir.
 
+        **Onaylayan:** Sözleşmede Onaylayan varsa bu uç önce yalnızca onay
+        bekleyen onaylayanları davet eder; imzacılar tüm onaylayanlar
+        onayladıktan sonra davet edilir. Bir onaylayan reddettiyse bu uç
+        kimseye davet göndermez; onay vermiş onaylayan yeniden davet edilmez.
+
         🔴 **Bu uçta yukarıdaki `/documents*` ailesinin bayrak kapısı
         (`ENVELOPE_DECISION_ENFORCE`) YOKTUR** (bilinçli): gönderim
         tek-belgeli zarflarda da anlamlıdır; o bayrak yalnız çok-belgeli zarf
@@ -3776,11 +4066,30 @@ paths:
             gövdede atamasız taraf id'leri `party_ids` içinde döner.
             `PUT .../documents/{docId}/assignments` ile atamayı tamamlayıp
             tekrar deneyin.
+            `DOCUMENT_COLLECTION_PARTY_REQUIRED`: imzadan önce zorunlu belge
+            toplama açık, ancak belge istenecek hiçbir SIGNER seçilmemiş.
+            En az bir imzacıda `collect_documents=true` seçip tekrar deneyin.
+            Ön kontrol kredi mutabakatından önce yapılır. Eşzamanlı değişiklik
+            kilitli gönderim aşamasında da kontrol edilir; bu durumda yayın
+            damgası geri alınır ve davet gönderilmez.
             `ENVELOPE_CHANGED_DURING_DISPATCH`: kredi mutabakatı ile
             gönderim iddiası arasında zarf değiştirildi (ör. eşzamanlı bir
             istek belge/atama ekledi). Sunucu bunu kilit altında bir kez
             kendiliğinden yeniden dener; ikinci denemede de olursa bu kod
             döner. Sözleşme yayına GEÇMEDİ; istek güvenle tekrarlanabilir.
+        '422':
+          description: |
+            `PARTY_PHONE_REQUIRED`: sözleşmede telefon doğrulaması açık ve bir
+            tarafın cep telefonu numarası boş ya da geçersiz (E.164 biçimine
+            çevrilemiyor). Taraf imza sırasında SMS kodu alamayacağı için
+            gönderim reddedilir. Kredi ve iddiadan ÖNCE, yan etkisiz kontrol
+            edilir (kredi dokunulmaz, statü değişmez, davet gitmez). Gövdede
+            `party_ids` ve `parties` (`party_id`, `party_order`, `reason`:
+            `MISSING` | `INVALID`) döner. Tarafa numara ekleyip tekrar deneyin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyPhoneRequired'
         '429':
           description: |
             Tekrar-gönderim hız sınırı aşıldı — bu uç
@@ -4896,6 +5205,9 @@ components:
           example: Musteri
         is_required:
           type: boolean
+        default_locale:
+          $ref: '#/components/schemas/SignerLocale'
+          description: Bu şablondan oluşturulan sözleşmede tarafa varsayılan olarak atanan imzacı dili.
     TemplateDocumentSummary:
       type: object
       description: |
@@ -5228,6 +5540,16 @@ components:
                 JSON payload, multi-party ve belge farkında (party_mapping[].variables + root
                 variables; aynı slug birden fazla belgede geçiyorsa document_variables ile belge
                 başına farklı değer)
+    SignerLocale:
+      type:
+        - string
+        - 'null'
+      enum:
+        - tr
+        - en
+        - null
+      description: İmzacı dili. `tr` (Türkçe), `en` (İngilizce) veya `null` (atanmadı).
+      example: en
     PartyMappingInput:
       type: object
       required:
@@ -5263,6 +5585,16 @@ components:
         send_email:
           type: boolean
           default: true
+        locale:
+          $ref: '#/components/schemas/SignerLocale'
+          description: >-
+            İmza sayfasının başlangıç dili (`tr` veya `en`); imzacı sayfada değiştirebilir.
+            Gönderilmezse şablon rolünün varsayılan dili (`default_locale`), o da yoksa tarayıcı
+            dili İngilizce ise İngilizce, aksi halde Türkçe kullanılır. `null` gönderilirse şablon
+            varsayılanı uygulanmaz, dil tarayıcıya göre belirlenir. Bildirimler (e-posta, SMS)
+            tarafa atanan dilde gider; dil atanmamışsa Türkçe gider. WhatsApp'ta İngilizce için
+            kurumunuzun onaylı İngilizce şablonu gerekir. Geçersiz değer `400 INVALID_LOCALE` döner.
+          example: en
         variables:
           type: object
           additionalProperties:
@@ -5502,6 +5834,43 @@ components:
         - template_id
         - party_mapping
       properties:
+        document_collection_enabled:
+          type: boolean
+          nullable: true
+          description: |
+            Belge Toplama açılsın mı? Gönderilmezse veya null ise sözleşme
+            şablonunun ayarı devralınır. Etkin değer true ise bir Belge Toplama
+            şablonu gerekir. false devralınan toplamayı kapatır; açıkça verilen
+            document_collection_template_id yine doğrulanır.
+        document_collection_template_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            Mevcut Belge Toplama şablonunun kimliği. Gönderilmezse, null veya boş
+            dize ise etkin toplama açıkken sözleşme şablonundaki seçim devralınır.
+            Açıkça verilen dolu kimlik, toplama false olsa da doğrulanır. Seçim
+            aktif ve aynı çalışma alanına ait olmalıdır; bulunamazsa, arşivliyse,
+            kapsam dışıysa veya kimlik metin değilse 404
+            DOCUMENT_COLLECTION_TEMPLATE_NOT_FOUND döner.
+        document_collection_timing:
+          type: string
+          enum:
+            - BEFORE_SIGNING
+            - AFTER_SIGNING
+          nullable: true
+          description: |
+            Toplama zamanı; gönderilmezse veya null ise sözleşme şablonunun ayarı
+            devralınır. Geçersiz değer 400 INVALID_DOCUMENT_COLLECTION_TIMING döner.
+        document_collection_block_signing:
+          type: boolean
+          nullable: true
+          description: |
+            Zorunlu belgeler tamamlanana kadar imzalamayı engelleme ayarı.
+            Gönderilmezse veya null ise sözleşme şablonunun ayarı devralınır.
+            Etkin AFTER_SIGNING zamanında true false olarak normalleştirilir.
+            Boolean alanlara boolean veya null dışında değer verilirse 400
+            INVALID_DOCUMENT_COLLECTION_FLAG döner.
         template_id:
           type: string
           format: uuid
@@ -6166,6 +6535,56 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FieldLayoutWarning'
+    PartyPhoneRequired:
+      type: object
+      description: |
+        Telefon doğrulaması açık bir sözleşmede telefonu eksik ya da geçersiz
+        taraf bulunduğunda dönen gövde (`PARTY_PHONE_REQUIRED`). Kredi
+        düşülmez, davet gönderilmez.
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: İnsan okunur açıklama
+        code:
+          type: string
+          enum:
+            - PARTY_PHONE_REQUIRED
+        message:
+          type: string
+        party_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        parties:
+          type: array
+          items:
+            type: object
+            properties:
+              party_id:
+                type: string
+                format: uuid
+              party_order:
+                type: integer
+              reason:
+                type: string
+                enum:
+                  - MISSING
+                  - INVALID
+        data:
+          type: object
+          description: Yalnız `POST /demands` yanıtında; sözleşme taslağa düşürüldü.
+          properties:
+            id:
+              type: string
+              format: uuid
+            status:
+              type: string
+              enum:
+                - DRAFT_UNDISPATCHED
     FieldTemplateParty:
       type: object
       description: |
@@ -6520,6 +6939,12 @@ components:
               signing_url:
                 type: string
                 format: uri
+              locale:
+                $ref: '#/components/schemas/SignerLocale'
+                description: Tarafa atanan dil (gönderen seçimi veya şablon varsayılanı). `null` = atanmadı.
+              signed_locale:
+                $ref: '#/components/schemas/SignerLocale'
+                description: İmzacının imzaladığı andaki sayfa dili. İmzalanmadıysa `null`.
         stamp_items:
           type: array
           description: |
@@ -7154,6 +7579,99 @@ components:
           type: string
           nullable: true
           description: Talep oluşturulurken verilen dış referans.
+    ApiV1DemandsPost400Response:
+      description: |
+        Eski üretilmiş istemci türleri için belge seçimi uyumluluk görünümü.
+        Tüm HTTP 400 yanıtlarını sınırlamaz; taşıma zarfı DemandCreationError'dur.
+      anyOf:
+        - $ref: '#/components/schemas/CodedError'
+        - $ref: '#/components/schemas/DocumentSelectionError'
+    DemandCreationError:
+      type: object
+      description: |
+        Sözleşme oluşturma hatalarının açık taşıma zarfı. Alanlar hata türüne
+        göre bulunur; yeni makine kodları istemci tarafından reddedilmez.
+        Somut Belge Toplama zarfları DocumentCollectionPolicyError ve
+        DocumentVerificationDisabledError şemaları ile yanıt örneklerinde açıklanır.
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+        field:
+          type: string
+          nullable: true
+        details:
+          type: object
+          additionalProperties: true
+    ApiV1DemandsBulkPost400Response:
+      type: object
+      description: Toplu oluşturma ön kontrolünün açık hata zarfı; alanlar hata türüne göre bulunur.
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+        field:
+          type: string
+          nullable: true
+        details:
+          type: object
+          additionalProperties: true
+    DocumentCollectionPolicyError:
+      type: object
+      description: Seçili Belge Toplama şablonunun politikası geçersiz; error kaynak makine kodudur.
+      required:
+        - success
+        - error
+        - code
+      properties:
+        success:
+          type: boolean
+          enum:
+            - false
+        code:
+          type: string
+          enum:
+            - VERIFICATION_CONTEXT_REQUIRED
+        error:
+          type: string
+          enum:
+            - DOCUMENT_TYPE_INVALID
+            - VERIFICATION_POLICY_INVALID
+            - VERIFICATION_INSTRUCTION_INVALID
+            - VERIFICATION_CONTEXT_REQUIRED
+            - VERIFICATION_POLICY_CONFLICT
+    DocumentVerificationDisabledError:
+      type: object
+      description: Seçili Belge Toplama şablonunun doğrulama politikası kullanılamıyor.
+      required:
+        - success
+        - error
+        - code
+      properties:
+        success:
+          type: boolean
+          enum:
+            - false
+        code:
+          type: string
+          enum:
+            - DOCUMENT_VERIFICATION_DISABLED
+        error:
+          type: string
+          enum:
+            - DOCUMENT_VERIFICATION_DISABLED
     CodedError:
       type: object
       description: |
