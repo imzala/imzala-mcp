@@ -74,6 +74,15 @@ export function formatDocumentSelectionError(
   return null;
 }
 
+/** Turkish reading of the VERIFICATION_CONTEXT_REQUIRED source codes (client.ts allowlist). */
+const VERIFICATION_SOURCE_TR: Record<string, string> = {
+  DOCUMENT_TYPE_INVALID: 'istenen belge türü tanımlı değil ya da desteklenmiyor',
+  VERIFICATION_POLICY_INVALID: 'doğrulama politikası geçersiz',
+  VERIFICATION_INSTRUCTION_INVALID: 'alıcı ya da amaç metni geçersiz (çok uzun ya da izin verilmeyen karakter içeriyor)',
+  VERIFICATION_CONTEXT_REQUIRED: 'doğrulama için belge türü ya da alıcı ve amaç eksik',
+  VERIFICATION_POLICY_CONFLICT: 'doğrulama kapalıyken alıcı ya da amaç doldurulmuş',
+};
+
 /** sozlesme_iptal's own wording for an uncoded 409 (not in a cancellable state). */
 export const CANCEL_CONFLICT_TEXT =
   'Bu işlem sözleşmenin mevcut durumunda yapılamaz (tamamlanmış veya zaten iptal edilmiş bir sözleşme iptal edilemez). Önce sozlesme_durumu ile durumu doğrulayın.';
@@ -158,7 +167,24 @@ export function formatError(e: unknown): string {
     return 'Belge doğrulama seçili şablon için şu anda kullanılamıyor. Sözleşme oluşturulmadı. Panelden Belge Toplama şablonunun seçimini ve doğrulama politikasını kontrol edin; aynı isteği otomatik tekrar denemeyin.';
   }
   if (code === 'VERIFICATION_CONTEXT_REQUIRED') {
-    return 'Seçili Belge Toplama şablonunun doğrulama ayarları geçersiz. Sözleşme oluşturulmadı. Panelden belge türü, politika, alıcı ve amaç alanlarını kontrol edin; ayarları düzeltmeden aynı isteği tekrar denemeyin.';
+    const reason = e.sourceCode ? VERIFICATION_SOURCE_TR[e.sourceCode] : undefined;
+    const detail = reason ? ` Sebep: ${reason} (kod: ${e.sourceCode}).` : '';
+    return `Seçili Belge Toplama şablonunun doğrulama ayarları geçersiz. Sözleşme oluşturulmadı, kredi düşülmedi.${detail} Panelden belge türü, politika, alıcı ve amaç alanlarını kontrol edin; ayarları düzeltmeden aynı isteği tekrar denemeyin.`;
+  }
+  if (code === 'DOCUMENT_COLLECTION_TEMPLATE_REQUIRED') {
+    return 'Şablonda Belge Toplama açık ama bir Belge Toplama şablonu seçili değil. Sözleşme oluşturulmadı, kredi düşülmedi. Panelden sözleşme şablonuna bir Belge Toplama şablonu seçin ya da Belge Toplamayı kapatın; ayarı düzeltmeden aynı isteği tekrar denemeyin.';
+  }
+  if (code === 'DOCUMENT_COLLECTION_TEMPLATE_NOT_FOUND') {
+    return 'Şablonda seçili Belge Toplama şablonu bulunamadı (silinmiş, arşivlenmiş ya da bu çalışma alanına ait değil). Sözleşme oluşturulmadı, kredi düşülmedi. Panelden sözleşme şablonundaki Belge Toplama seçimini güncelleyin; düzeltmeden aynı isteği tekrar denemeyin.';
+  }
+  if (code === 'INVALID_DOCUMENT_COLLECTION_TIMING' || code === 'INVALID_DOCUMENT_COLLECTION_FLAG') {
+    return 'Şablonun Belge Toplama ayarı (toplama zamanı ya da imzayı engelleme seçeneği) geçersiz. Sözleşme oluşturulmadı, kredi düşülmedi. Panelden sözleşme şablonunun Belge Toplama ayarlarını kontrol edin; düzeltmeden aynı isteği tekrar denemeyin.';
+  }
+  if (code === 'CONSENT_SINGLE_PARTY') {
+    // API 1.11.0: an open-consent document is copied once per mapped signer.
+    // The 400 means the copies push the envelope past its document limit (or,
+    // on panel-side edits, a consent document has more than one signer).
+    return 'Açık rıza belgesi her imzacı için ayrı bir kopya olarak açılır ve bu kopyalarla sözleşmedeki belge sayısı sınırı (20) aşılıyor. Sözleşme oluşturulmadı, kredi düşülmedi. Daha az rol eşleyin ya da panelden şablondaki açık rıza belgesini tek role atayın. Aynı isteği değiştirmeden tekrar denemeyin; aynı hatayı alırsınız.';
   }
   if (code === 'TSA_UNAVAILABLE') {
     return 'Eser Tasdik işlemi şu an tamamlanamıyor (zaman damgası sağlayıcısına ulaşılamadı); lütfen biraz sonra tekrar deneyin.';
@@ -402,6 +428,10 @@ export function formatContractStatus(d: DemandStatusResult): string {
     lines.push('Belgeler (imzalı PDF için imzali_pdf_indir aracına belge_id verilir):');
     for (const doc of d.documents) lines.push(`- ${formatDemandDocument(doc)}`);
     lines.push('Not: Belge durumu kararın verildiğini gösterir; kabul mü ret mi olduğunu göstermez. Onay ve açık rıza kayıtları İmzala.org panelinden ve tamamlanma sertifikasından izlenir.');
+  }
+  if (d.documents?.some((doc) => doc.doc_kind === 'KVKK_CONSENT')) {
+    // API 1.11.0: the public result page hides open-consent documents.
+    lines.push('Not: Açık rıza belgesi sonuç sayfasında gösterilmez; her imzacının rıza kararı kendi kopyasındadır ve diğer imzacılar bu kararı görmez.');
   }
   lines.push('');
   if (d.status !== 'DRAFT') lines.push(`Sonuç sayfası: ${d.result_url}`);

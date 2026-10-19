@@ -5,11 +5,11 @@
 openapi: 3.1.0
 info:
   title: imzala External API
-  version: 1.10.7
+  version: 1.11.1
   description: |
     imzala.org dış API'si — şablondan sözleşme oluşturma ve takip.
 
-    **Sürüm:** 1.10.7 · **Son güncelleme:** 2026-10-13
+    **Sürüm:** 1.11.1 · **Son güncelleme:** 2026-10-18
 
     ## Auth
     Tüm istekler `X-API-Key` header'ı gerektirir. API key dashboard üzerinden
@@ -625,6 +625,18 @@ paths:
         atamalarını `PUT .../documents/{docId}/assignments` ile düzelttikten
         sonra `POST .../dispatch` ile gönderin (o uç aynı kapıyı yeniden
         uygular).
+
+        **Açık rıza belgesi:** Açık rıza (`KVKK_CONSENT`) belgesi her imzacının
+        kendi kararı için ayrı bir belgedir. Şablonda böyle bir belge birden
+        çok role atanmışsa, sözleşme oluşturulurken eşlediğiniz her rol için
+        ayrı bir kopya açılır ve her kopya yalnız o imzacıya atanır; imzacılar
+        birbirinin rıza kararını görmez. Kopyanın başlığına rol etiketi eklenir
+        (ör. "Açık Rıza Beyanı (Başvuran 2)"), kopyada yalnız o rolün alanları
+        ve role bağlı olmayan alanlar yer alır. Şablon değişmez. Belge bazlı
+        değişkenler (`document_variables`) rıza belgesinin tüm kopyalarına
+        uygulanır. Kredi hesabında kopyalar ayrı belge sayılır; imzacı başına
+        belge sayısı değişmez.
+
         Belge Toplama ayarları, açıkça verilen ve tamamen devralınan seçimler
         oluşturma, kredi işlemleri ve davetlerden önce doğrulanır. Etkin toplama
         şablonsuzsa 400 `DOCUMENT_COLLECTION_TEMPLATE_REQUIRED` döner.
@@ -742,6 +754,11 @@ paths:
             `INVALID_LOCALE`: `party_mapping[i].locale` `tr`, `en` veya `null`
             değil. `error` hatalı alanın yolunu taşır; sözleşme oluşturulmaz,
             kredi düşülmez.
+
+            `CONSENT_SINGLE_PARTY`: açık rıza belgesi her imzacı için ayrı
+            açıldığında zarf 20 belge sınırını aşıyor. Daha az rol eşleyin ya
+            da şablondaki rıza belgelerini tek role atayın. Sözleşme
+            oluşturulmaz, kredi düşülmez.
 
             `INVALID_DOCUMENT_SELECTION`: belge seçimi hatası; `details.reason`
             şu değerlerden biridir: `shape` (biçim: nesne değil, bilinmeyen
@@ -917,22 +934,6 @@ paths:
             `DOCUMENT_SOURCE_UNAVAILABLE`: şablonun ilk belgesini çıkardınız
             ve kalan ilk belgenin kaynak dosyası yok; ilk belgeyi de gönderin
             ya da o belgeye dosya yükleyin.
-        '422':
-          description: |
-            `PARTY_PHONE_REQUIRED`: şablonda telefon doğrulaması açık ve
-            eşlenen bir tarafın cep telefonu numarası boş ya da geçersiz (E.164
-            biçimine çevrilemiyor). Taraf imza sırasında SMS kodu alamayacağı
-            için sözleşme davet gönderilmeden TASLAĞA düşürülür; kredi
-            düşülmez. Gövdede `party_ids` (taraf id'leri), `parties`
-            (`party_id`, `party_order`, `reason`: `MISSING` | `INVALID`) ve
-            `data.id` / `data.status: "DRAFT_UNDISPATCHED"` döner. Tarafa
-            numara ekleyip `POST /demands/{demandId}/dispatch` ile devam edin.
-            Yalnız davet gönderilecekse (`dispatch_notifications` `false`
-            DEĞİLSE) kontrol edilir; aksi hâlde kontrol `/dispatch`'te yapılır.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PartyPhoneRequired'
         '500':
           description: |
             `RECONCILE_FAILED`: kredi mutabakatı beklenmedik (kredi-dışı) bir
@@ -1100,7 +1101,10 @@ paths:
                               type: string
                               format: uri
                               nullable: true
-                              description: COMPLETED ise imzalı PDF public URL'i
+                              description: >-
+                                COMPLETED ise imzalı PDF public URL'i. Açık rıza belgesi bu herkese
+                                açık bağlantıdan verilmez (zarfın ilk belgesi açık rıza belgesiyse
+                                404 döner); API anahtarıyla `GET /api/v1/demands/{id}/pdf` kullanın.
                       total:
                         type: integer
                       page:
@@ -1160,12 +1164,6 @@ paths:
           döner; kontrol satır oluşturulmadan ÖNCE (`demand_id` YOK) veya
           oluşturulduktan hemen SONRA (sözleşme taslağa düşer, `demand_id` +
           `party_ids` döner) çalışabilir. Diğer satırlar etkilenmez.
-        - Taraf telefonu: şablonda telefon doğrulaması açık ve eşlenen bir
-          tarafın cep telefonu numarası boş ya da geçersizse (ve
-          `options.dispatch_notifications` `false` DEĞİLSE) o satır `failed`
-          (`error: "PARTY_PHONE_REQUIRED"`) döner; sözleşme taslağa düşer,
-          `demand_id` + `party_ids` döner, kredi düşülmez. Diğer satırlar
-          etkilenmez.
         - Belge seçimi satır başınadır: `rows[i].documents` (`POST /demands`
           ile aynı şema). `options.documents` gönderilirse 400
           `INVALID_DOCUMENT_SELECTION`. Satırın seçim hatası o satırı `failed`
@@ -1432,18 +1430,16 @@ paths:
                               format: uuid
                               description: >-
                                 status=created ise; veya status=failed olup sözleşme oluşturulduktan
-                                SONRA kredi mutabakatı reddettiyse, atamasız imzacı ya da telefonu
-                                eksik taraf bulunduysa (taslak, davet gönderilmedi)
+                                SONRA kredi mutabakatı reddettiyse ya da atamasız imzacı bulunduysa
+                                (taslak, davet gönderilmedi)
                             party_ids:
                               type: array
                               items:
                                 type: string
                                 format: uuid
                               description: >-
-                                error=PARTY_WITHOUT_DOCUMENTS ve sözleşme oluşturulduktan SONRA
-                                tespit edildiyse: hiçbir belgeye atanmamış taraf id'leri.
-                                error=PARTY_PHONE_REQUIRED ise: telefonu eksik ya da geçersiz taraf
-                                id'leri.
+                                Yalnız error=PARTY_WITHOUT_DOCUMENTS ve sözleşme oluşturulduktan
+                                SONRA tespit edildiyse: hiçbir belgeye atanmamış taraf id'leri.
                             template_party_ids:
                               type: array
                               items:
@@ -1491,6 +1487,9 @@ paths:
                             result_url:
                               type: string
                               format: uri
+                              description: >-
+                                Sonuç sayfası açık rıza belgesini, sayfalarını ve indirme
+                                bağlantısını göstermez.
                             dispatched:
                               type: integer
                               description: Gönderilen davet (SMS+e-posta) sayısı
@@ -1501,8 +1500,7 @@ paths:
                                 INVALID_LOCALE, INSUFFICIENT_CREDITS, MEMBER_LIMIT_EXCEEDED,
                                 PARTY_WITHOUT_DOCUMENTS, INVALID_DOCUMENT_SELECTION,
                                 INVALID_DOCUMENT_VARIABLES, TEMPLATE_DOCUMENTS_NOT_READY,
-                                DOCUMENT_SOURCE_UNAVAILABLE, RECONCILE_FAILED, PARTY_PHONE_REQUIRED,
-                                CREATE_FAILED vb.)
+                                DOCUMENT_SOURCE_UNAVAILABLE, RECONCILE_FAILED, CREATE_FAILED vb.)
                             message:
                               type: string
                               description: status=failed ise açıklama
@@ -3100,11 +3098,6 @@ paths:
         Bekleyen bir sözleşmeyi iptal eder (status=CANCELLED). Tamamlanmış
         (409) veya zaten iptal edilmiş (409) sözleşme iptal edilemez. Bekleyen
         hatırlatmalar iptal edilir.
-
-        Taraflara iptal bildirimi isteğe bağlıdır ve varsayılan olarak
-        gönderilmez. notify_parties true verilirse daveti ulaşmış taraflara
-        iptal bildirimi gider; gönderenin taraf için kapattığı kanal
-        kullanılmaz; bildirimde iptal gerekçesi yer almaz.
       parameters:
         - name: id
           in: path
@@ -3122,14 +3115,6 @@ paths:
                 reason:
                   type: string
                   description: İptal nedeni (opsiyonel)
-                notify_parties:
-                  type: boolean
-                  default: false
-                  description: |
-                    notify_parties true verilirse daveti ulaşmış taraflara iptal
-                    bildirimi gider; gönderenin taraf için kapattığı kanal
-                    kullanılmaz; bildirimde iptal gerekçesi yer almaz. Verilmezse
-                    ya da false ise bildirim gönderilmez.
       responses:
         '200':
           description: İptal edildi
@@ -3754,6 +3739,8 @@ paths:
             `CONSENT_CANNOT_BE_REQUIRED` / `PREINFO_MUST_BE_REQUIRED` — yamadan
             SONRA etkin `doc_kind`+`is_required` çiftine göre kontrol edilir
             (tek alanı yamalayıp kuralı atlatmak mümkün değildir).
+            `CONSENT_SINGLE_PARTY`: birden çok imzacıya atanmış belge açık
+            rıza belgesine çevrilemez.
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -3825,6 +3812,10 @@ paths:
 
         Zaten karar vermiş (onaylamış/reddetmiş) bir imzacının ataması
         kaldırılamaz (400 `ASSIGNMENT_HAS_DECISION`).
+
+        Açık rıza (`KVKK_CONSENT`) belgesi yalnız bir imzacıya atanabilir
+        (400 `CONSENT_SINGLE_PARTY`): her imzacının rızasını ayrı bir belgeyle
+        alın, böylece imzacılar birbirinin kararını görmez.
       parameters:
         - name: demandId
           in: path
@@ -3873,6 +3864,8 @@ paths:
             `ASSIGNMENT_EMPTY` — `party_ids` eksik/boş. `INVALID_PARTY_ID` —
             bu sözleşmeye ait olmayan taraf id'si. `ASSIGNMENT_HAS_DECISION`
             — karar vermiş bir imzacının ataması kaldırılamaz.
+            `CONSENT_SINGLE_PARTY`: açık rıza belgesi birden çok imzacıya
+            atanamaz.
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -4077,19 +4070,6 @@ paths:
             istek belge/atama ekledi). Sunucu bunu kilit altında bir kez
             kendiliğinden yeniden dener; ikinci denemede de olursa bu kod
             döner. Sözleşme yayına GEÇMEDİ; istek güvenle tekrarlanabilir.
-        '422':
-          description: |
-            `PARTY_PHONE_REQUIRED`: sözleşmede telefon doğrulaması açık ve bir
-            tarafın cep telefonu numarası boş ya da geçersiz (E.164 biçimine
-            çevrilemiyor). Taraf imza sırasında SMS kodu alamayacağı için
-            gönderim reddedilir. Kredi ve iddiadan ÖNCE, yan etkisiz kontrol
-            edilir (kredi dokunulmaz, statü değişmez, davet gitmez). Gövdede
-            `party_ids` ve `parties` (`party_id`, `party_order`, `reason`:
-            `MISSING` | `INVALID`) döner. Tarafa numara ekleyip tekrar deneyin.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PartyPhoneRequired'
         '429':
           description: |
             Tekrar-gönderim hız sınırı aşıldı — bu uç
@@ -6240,6 +6220,7 @@ components:
           type: string
           format: uri
           example: https://e.imzala.org/sonuc/<demand_id>
+          description: Sonuç sayfası açık rıza belgesini, sayfalarını ve indirme bağlantısını göstermez.
         variables_applied:
           type: array
           items:
@@ -6374,6 +6355,7 @@ components:
         result_url:
           type: string
           format: uri
+          description: Sonuç sayfası açık rıza belgesini, sayfalarını ve indirme bağlantısını göstermez.
         dispatch:
           description: |
             YALNIZ istekte `send_invitations` gönderildiğinde döner. Davet
@@ -6535,56 +6517,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FieldLayoutWarning'
-    PartyPhoneRequired:
-      type: object
-      description: |
-        Telefon doğrulaması açık bir sözleşmede telefonu eksik ya da geçersiz
-        taraf bulunduğunda dönen gövde (`PARTY_PHONE_REQUIRED`). Kredi
-        düşülmez, davet gönderilmez.
-      properties:
-        success:
-          type: boolean
-          example: false
-        error:
-          type: string
-          description: İnsan okunur açıklama
-        code:
-          type: string
-          enum:
-            - PARTY_PHONE_REQUIRED
-        message:
-          type: string
-        party_ids:
-          type: array
-          items:
-            type: string
-            format: uuid
-        parties:
-          type: array
-          items:
-            type: object
-            properties:
-              party_id:
-                type: string
-                format: uuid
-              party_order:
-                type: integer
-              reason:
-                type: string
-                enum:
-                  - MISSING
-                  - INVALID
-        data:
-          type: object
-          description: Yalnız `POST /demands` yanıtında; sözleşme taslağa düşürüldü.
-          properties:
-            id:
-              type: string
-              format: uuid
-            status:
-              type: string
-              enum:
-                - DRAFT_UNDISPATCHED
     FieldTemplateParty:
       type: object
       description: |
@@ -6986,11 +6918,15 @@ components:
         result_url:
           type: string
           format: uri
+          description: Sonuç sayfası açık rıza belgesini, sayfalarını ve indirme bağlantısını göstermez.
         pdf_url:
           type: string
           format: uri
           nullable: true
-          description: Sadece status=COMPLETED iken dolu
+          description: >-
+            Sadece status=COMPLETED iken dolu. Açık rıza belgesi bu herkese açık bağlantıdan
+            verilmez (zarfın ilk belgesi açık rıza belgesiyse 404 döner); API anahtarıyla `GET
+            /api/v1/demands/{id}/pdf` kullanın.
         documents:
           type: array
           description: |

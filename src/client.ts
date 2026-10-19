@@ -442,6 +442,12 @@ export interface ImzalaApiErrorExtras {
   demandStatus?: string;
   /** Seconds to wait before retrying (429). */
   retryAfterSeconds?: number;
+  /**
+   * 400 VERIFICATION_CONTEXT_REQUIRED (API 1.10.x+): the `error` field of that
+   * envelope carries the source machine code, not free text. Only a value from
+   * VERIFICATION_SOURCE_CODES is kept.
+   */
+  sourceCode?: string;
 }
 
 export class ImzalaApiError extends Error {
@@ -463,6 +469,7 @@ export class ImzalaApiError extends Error {
   public readonly demandId?: string;
   public readonly demandStatus?: string;
   public readonly retryAfterSeconds?: number;
+  public readonly sourceCode?: string;
 
   constructor(
     public readonly status: number,
@@ -479,6 +486,7 @@ export class ImzalaApiError extends Error {
     this.demandId = extra?.demandId;
     this.demandStatus = extra?.demandStatus;
     this.retryAfterSeconds = extra?.retryAfterSeconds;
+    this.sourceCode = extra?.sourceCode;
   }
 }
 
@@ -505,6 +513,22 @@ function asApiIdList(v: unknown): string[] | undefined {
 }
 function asRetryAfter(v: unknown): number | undefined {
   return typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 3600 ? v : undefined;
+}
+/**
+ * Source codes the API puts in `error` when `code` is VERIFICATION_CONTEXT_REQUIRED
+ * (Belge Toplama policy preflight). A closed list: any other `error` value is
+ * free text and is never carried.
+ */
+export const VERIFICATION_SOURCE_CODES = [
+  'DOCUMENT_TYPE_INVALID',
+  'VERIFICATION_POLICY_INVALID',
+  'VERIFICATION_INSTRUCTION_INVALID',
+  'VERIFICATION_CONTEXT_REQUIRED',
+  'VERIFICATION_POLICY_CONFLICT',
+] as const;
+function asVerificationSourceCode(code: string | undefined, v: unknown): string | undefined {
+  if (code !== 'VERIFICATION_CONTEXT_REQUIRED' || typeof v !== 'string') return undefined;
+  return (VERIFICATION_SOURCE_CODES as readonly string[]).includes(v) ? v : undefined;
 }
 function asObject(v: unknown): Record<string, unknown> | undefined {
   return v !== null && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : undefined;
@@ -541,6 +565,7 @@ export function errorFromBody(status: number, raw: unknown): ImzalaApiError {
     demandId: asApiId(data?.id) ?? asApiId(body.demand_id),
     demandStatus: asApiCode(data?.status),
     retryAfterSeconds: asRetryAfter(nested ? nested.retry_after_seconds : body.retry_after_seconds),
+    sourceCode: nested ? undefined : asVerificationSourceCode(code, body.error),
   });
 }
 

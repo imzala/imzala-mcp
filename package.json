@@ -1,7 +1,7 @@
 {
   "name": "@imzala/mcp-server",
-  "version": "1.9.1",
-  "description": "\u0130mzala MCP sunucusu: s\u00f6zle\u015fme listesi, durumu, olu\u015fturma ve iptali, \u015fablonlar, ki\u015filer, imzal\u0131 PDF indirme, hat\u0131rlatma ve Eser Tasdik. API anahtar\u0131yla \u00e7al\u0131\u015f\u0131r.",
+  "version": "1.11.0",
+  "description": "İmzala MCP sunucusu: sözleşme listesi, durumu, oluşturma ve iptali, şablonlar, kişiler, imzalı PDF indirme, hatırlatma ve Eser Tasdik. API anahtarıyla çalışır.",
   "type": "module",
   "bin": {
     "imzala-mcp": "dist/bin/stdio.js"

@@ -142,6 +142,7 @@ Araçlar sunucunun ham hata metnini aktarmaz; ne olduğunu ve sonraki adımı s�
 - **Mesaj bir sözleşme kimliği veriyorsa sözleşme oluşmuştur.** Kredi yetersizliği, üye aylık limiti ya da kredi mutabakatı hatasında sözleşme taslak olarak kalabilir ve davet gönderilmez. Aracı yeniden çağırmayın; taslak panelden gönderilir.
 - **Tekrar koruması.** `idempotency_key` vermeden aynı içerikle (aynı şablon, taraflar ve değişkenler) 10 dakika içinde ikinci bir sözleşme oluşturma isteği durdurulur ve mevcut sözleşmenin kimliği döner. Bu en iyi çaba korumasıdır, kesin bir engel değildir. İkinci sözleşmeyi bilerek istiyorsanız `tekrar_onayi: true` verin.
 - **`idempotency_key`.** Aynı anahtar ve aynı içerikle yapılan tekrar istek yeni sözleşme oluşturmaz, ilk sözleşmeyi döndürür. Anahtar 1-255 karakter, boşluksuz ve yalnız ASCII olmalıdır.
+- **Ayara bağlı hatalar.** Şablonun Belge Toplama ayarı ya da açık rıza belgesi yüzünden oluşturulamayan sözleşmede araç sözleşmenin oluşturulmadığını ve kredi düşülmediğini söyler. Bu hatalar aynı istek tekrarlanınca düzelmez: önce panelden şablonu düzeltin.
 - **İstek sınırı.** Anahtar başına dakikada 60 istek; toplu gönderimde dakikada 5, Eser Tasdik işleminde dakikada 10. Aşıldığında araç kaç saniye beklemeniz gerektiğini söyler.
 
 ---
@@ -352,6 +353,8 @@ Davet gönderilmedi. Taraflara imza daveti İmzala.org panelindeki sözleşme sa
 Sonuç sayfası: https://e.imzala.org/sonuc/dem_789
 ```
 
+**Açık rıza belgesi:** Şablonda açık rıza belgesi birden çok role atanmışsa sözleşme oluşturulurken eşlediğiniz her imzacı için ayrı bir kopya açılır; her kopya yalnız o imzacıya atanır ve imzacılar birbirinin rıza kararını görmez. Kopyalarla birlikte sözleşmedeki belge sayısı 20'yi aşarsa sözleşme oluşturulmaz ve kredi düşülmez; daha az rol eşleyin ya da panelden rıza belgesini tek role atayın. Sonuç sayfası açık rıza belgesini göstermez.
+
 **Belge seçimi (çok belgeli zarf):** Çıkarılan belge bu imza sürecine eklenmez: imzacıya gösterilmez, imzalı PDF'te ve tamamlanma sertifikasında yer almaz, kredi hesabına girmez. Sonuçta en az bir belge kalmalı ve eşlediğiniz her role en az bir belge düşmelidir. Mevzuat gereği karşı tarafa verilmesi gereken belgeleri (ör. ön bilgilendirme formu, aydınlatma metni) başka bir kanaldan vermiyorsanız çıkarmayın; bu belgelerin verilmesi yükümlülüğü sözleşmeyi gönderene aittir.
 
 Belge seçimi hatalarında araç ne yapılacağını söyleyen ayrı mesajlar döner: seçimde şablona ait olmayan ya da iki listede birden geçen kimlik, seçim sonrası belge kalmaması, bir role hiç belge düşmemesi (bu durumda sözleşme ya hiç oluşmaz ya da taslakta kalır, her iki halde de kredi harcanmaz), şablonun belge yapısının henüz hazır olmaması ve ilk belgenin kaynak dosyasının bulunmaması.
@@ -406,6 +409,18 @@ Bu işlem:
 Bu not hukuki danışmanlık değildir; belirli bir amaç için kullanmadan önce bir hukukçuya danışın.
 
 ---
+
+## Sürüm notları
+
+### 1.11.0
+
+- İmzala API 1.11.1 ile uyumlu.
+- Açık rıza belgesi her imzacı için ayrı kopya olarak açılıyor; belge sınırı aşıldığında sözleşme oluşturma ve toplu gönderim araçları bunu ayrı bir mesajla bildirir (sözleşme oluşmadı, kredi düşmedi).
+- Belge Toplama ayarı eksik ya da geçersiz şablonlarda araç sebebi söyler ve aynı isteğin tekrarlanmamasını önerir.
+- `sozlesme_durumu`, sözleşmede açık rıza belgesi varsa bu belgenin sonuç sayfasında gösterilmediğini belirtir.
+- İmzacı dili (`locale`, `tr` veya `en`) tek sözleşme ve toplu gönderim araçlarında desteklenir; hatırlatma sonucu sırası henüz gelmemiş tarafları ayrıca sayar.
+
+Önceki sürümlerle uyumludur; yeni girdiler isteğe bağlıdır.
 
 ## Katkı ve test
 
