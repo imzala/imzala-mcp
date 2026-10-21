@@ -16,7 +16,7 @@ const bulkRowSchema = z.object({
   // Tek-sözleşme aracıyla AYNI taraf şeması (locale dahil). passthrough: API'nin
   // kabul ettiği diğer taraf alanları (send_sms vb.) eskiden olduğu gibi
   // iletilmeye devam eder, sessizce ayıklanmaz.
-  party_mapping: z.array(partySchema.passthrough()).describe('Bu satırın taraf eşlemesi (sablondan_sozlesme_olustur ile aynı şekil: template_party_id + ad soyad + email/phone + isteğe bağlı variables, locale ve require_phone_verification). template_party_id = sablon_detay çıktısındaki tam UUID; taraf adını/etiketini DEĞİL.'),
+  party_mapping: z.array(partySchema.passthrough()).describe('Bu satırın taraf eşlemesi (sablondan_sozlesme_olustur ile aynı şekil: template_party_id + ad soyad + email/phone + isteğe bağlı variables, locale ve require_phone_verification; require_phone_verification için false yalnız onaylayan tarafta etkilidir, kullanıcı açıkça istemedikçe false göndermeyin). template_party_id = sablon_detay çıktısındaki tam UUID; taraf adını/etiketini DEĞİL.'),
   variables: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().describe('Bu satıra özel değişkenler'),
   documents: documentSelectionSchema.optional().describe(`Bu satıra özel belge seçimi. ${DOCUMENTS_DESCRIPTION} Belge seçimi satır başınadır, toplu seçeneklerin (options) içine konulamaz.`),
 });

@@ -227,7 +227,7 @@ export function formatError(e: unknown): string {
     // API 1.12.0: create/bulk reject a party with require_phone_verification
     // true and an empty phone before anything is created; the same code on
     // dispatch carries party_ids, never echoed here.
-    return 'Telefon doğrulaması açık bir tarafın telefon numarası boş; doğrulama kodu SMS ile gönderildiği için numara gerekir. Sözleşme oluşturulmadı, kredi düşülmedi. O tarafa phone ekleyin ya da require_phone_verification değerini kaldırın; değiştirmeden tekrar denemeyin.';
+    return 'Telefon doğrulaması açık bir tarafın telefon numarası boş; doğrulama kodu SMS ile gönderildiği için numara gerekir. Sözleşme oluşturulmadı, kredi düşülmedi. Önce kullanıcıdan o tarafın telefon numarasını isteyin ve phone alanına ekleyin. Telefon doğrulamasını kaldırmak (require_phone_verification alanını göndermemek) yalnız kullanıcı bunu açıkça isterse yapılır. Değiştirmeden tekrar denemeyin.';
   }
   if (code === 'INVALID_IDEMPOTENCY_KEY') {
     return 'idempotency_key biçimi geçersiz: 1-255 karakter, boşluksuz ve yalnız ASCII harf, rakam ya da noktalama içermeli (Türkçe karakter olmaz).';

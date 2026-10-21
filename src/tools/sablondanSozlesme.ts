@@ -11,7 +11,7 @@ export const partySchema = z.object({
   phone: z.string().optional(),
   variables: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().describe('Bu tarafa özel değişkenler'),
   locale: z.enum(['tr', 'en']).optional().describe("İmza sayfasının başlangıç dili (tr veya en); imzacı sayfada değiştirebilir. Boş bırakılırsa şablondaki rolün varsayılan dili, o da yoksa tarayıcı dili İngilizce ise İngilizce, aksi halde Türkçe kullanılır. Bildirimler (e-posta, SMS) atanan dilde gider; dil atanmamışsa Türkçe gider. WhatsApp'ta İngilizce için kurumun onaylı İngilizce şablonu gerekir."),
-  require_phone_verification: z.boolean().nullable().optional().describe('Telefon doğrulamasını (SMS ile gelen kod) yalnız bu taraf için açar (true) ya da kapatır (false). Verilmezse sözleşmenin telefon doğrulaması ayarı geçerlidir. Sözleşmede telefon doğrulaması açıksa imzalayan taraflar için false etkisizdir. true verilen tarafın phone alanı dolu olmalıdır; boşsa sözleşme oluşturulmaz. Sözleşme gönderildikten sonra bu ayar değiştirilemez.'),
+  require_phone_verification: z.boolean().nullable().optional().describe('Telefon doğrulamasını (SMS ile gelen kod) yalnız bu taraf için açar (true) ya da kapatır (false). Verilmezse sözleşmenin telefon doğrulaması ayarı geçerlidir. Sözleşmede telefon doğrulaması açıksa false yalnız onaylayan tarafta etkilidir, imzalayan taraflarda etkisizdir; kullanıcı açıkça istemedikçe false göndermeyin. true verilen tarafın phone alanı dolu olmalıdır; boşsa sözleşme oluşturulmaz. Sözleşme gönderildikten sonra bu ayar değiştirilemez.'),
 });
 
 const documentSelectionSchema = z.object({

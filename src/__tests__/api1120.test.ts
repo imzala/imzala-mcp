@@ -74,3 +74,16 @@ describe('telefon doğrulaması hata kodları', () => {
     expect(msg).not.toMatch(/ham metin/);
   });
 });
+
+describe('telefon doğrulaması yönlendirmesi', () => {
+  test('PHONE_REQUIRED_FOR_VERIFICATION önce telefon ister, kaldırmayı yalnız açık istekle söyler', () => {
+    const msg = formatError(errorFromBody(400, { success: false, code: 'PHONE_REQUIRED_FOR_VERIFICATION', error: 'x' }));
+    expect(msg).toMatch(/Önce kullanıcıdan o tarafın telefon numarasını isteyin/);
+    expect(msg).toMatch(/yalnız kullanıcı bunu açıkça isterse/);
+  });
+
+  test('alan açıklaması false için açık istek şartını söyler', () => {
+    expect(partySchema.shape.require_phone_verification.description).toMatch(/false yalnız onaylayan tarafta etkilidir/);
+    expect(partySchema.shape.require_phone_verification.description).toMatch(/açıkça istemedikçe false göndermeyin/);
+  });
+});
