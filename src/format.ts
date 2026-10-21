@@ -220,6 +220,15 @@ export function formatError(e: unknown): string {
   if (code === 'INVALID_LOCALE') {
     return 'İmzacı dili geçersiz: locale yalnız tr veya en olabilir (ya da hiç verilmez). Sözleşme oluşturulmadı, kredi düşülmedi.';
   }
+  if (code === 'INVALID_PHONE_VERIFICATION') {
+    return 'Telefon doğrulaması ayarı geçersiz: require_phone_verification yalnız true, false ya da boş olabilir. Sözleşme oluşturulmadı, kredi düşülmedi.';
+  }
+  if (code === 'PHONE_REQUIRED_FOR_VERIFICATION') {
+    // API 1.12.0: create/bulk reject a party with require_phone_verification
+    // true and an empty phone before anything is created; the same code on
+    // dispatch carries party_ids, never echoed here.
+    return 'Telefon doğrulaması açık bir tarafın telefon numarası boş; doğrulama kodu SMS ile gönderildiği için numara gerekir. Sözleşme oluşturulmadı, kredi düşülmedi. O tarafa phone ekleyin ya da require_phone_verification değerini kaldırın; değiştirmeden tekrar denemeyin.';
+  }
   if (code === 'INVALID_IDEMPOTENCY_KEY') {
     return 'idempotency_key biçimi geçersiz: 1-255 karakter, boşluksuz ve yalnız ASCII harf, rakam ya da noktalama içermeli (Türkçe karakter olmaz).';
   }

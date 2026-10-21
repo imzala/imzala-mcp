@@ -1,6 +1,6 @@
 {
   "name": "@imzala/mcp-server",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "description": "İmzala MCP sunucusu: sözleşme listesi, durumu, oluşturma ve iptali, şablonlar, kişiler, imzalı PDF indirme, hatırlatma ve Eser Tasdik. API anahtarıyla çalışır.",
   "type": "module",
   "bin": {

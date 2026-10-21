@@ -182,6 +182,8 @@ export interface CreateDemandPartyMapping {
   variables?: Record<string, string | number | boolean | null>;
   /** İmzacı dili (API 1.10.0). Verilmezse şablon rolünün varsayılanı. */
   locale?: 'tr' | 'en';
+  /** Taraf bazında telefon doğrulaması (API 1.12.0). Verilmezse sözleşmenin ayarı. */
+  require_phone_verification?: boolean | null;
 }
 export interface CreateDemandInput {
   templateId: string;

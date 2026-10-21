@@ -332,7 +332,7 @@ Bir şablondan yeni sözleşme oluşturur. **Kredi harcar:** tutar imzacı sayı
 | Alan | Tip | Zorunlu | Aciklama |
 |------|-----|---------|----------|
 | `template_id` | `string` | Evet | Sözleşmenin oluşturulacağı şablonun kimliği |
-| `parties` | `array` | Evet | Taraflar. Her öğe: `template_party_id` (sablon_detay ile öğrenilir) + `first_name` + `last_name` + (`email` veya `phone`) + isteğe bağlı `variables` + isteğe bağlı `locale` (`tr` veya `en`: imza sayfasının başlangıç dili, imzacı sayfada değiştirebilir; boş bırakılırsa şablondaki rolün varsayılanı, o da yoksa tarayıcı dili İngilizce ise İngilizce, aksi halde Türkçe. Bildirimler (e-posta, SMS) atanan dilde, dil atanmamışsa Türkçe gider). `toplu_sozlesme_gonder` aracının `party_mapping` öğeleri de aynı şemayı kullanır |
+| `parties` | `array` | Evet | Taraflar. Her öğe: `template_party_id` (sablon_detay ile öğrenilir) + `first_name` + `last_name` + (`email` veya `phone`) + isteğe bağlı `variables` + isteğe bağlı `locale` (`tr` veya `en`: imza sayfasının başlangıç dili, imzacı sayfada değiştirebilir; boş bırakılırsa şablondaki rolün varsayılanı, o da yoksa tarayıcı dili İngilizce ise İngilizce, aksi halde Türkçe. Bildirimler (e-posta, SMS) atanan dilde, dil atanmamışsa Türkçe gider) + isteğe bağlı `require_phone_verification` (`true` / `false`: telefon doğrulamasını yalnız bu taraf için açar ya da kapatır; verilmezse sözleşmenin ayarı geçerlidir, sözleşmede açıksa imzalayan taraflar için `false` etkisizdir; `true` verilen tarafın `phone` alanı dolu olmalıdır). `toplu_sozlesme_gonder` aracının `party_mapping` öğeleri de aynı şemayı kullanır |
 | `variables` | `object` | Hayir | Şablon geneli değişkenler (slug: değer) |
 | `documents` | `object` | Hayir | Bu sözleşmede gönderilecek belgeleri seçer: `include` (varsayılanda gönderilmeyeni ekler) ve/veya `exclude` (varsayılanda gönderileni çıkarır), liste başına en fazla 20 belge kimliği. Verilmezse şablonun varsayılan belge kümesi gider |
 | `gonder` | `boolean` | Hayir | `true` verilirse taraflara HEMEN gerçek SMS ve e-posta daveti gönderilir. Varsayılan `false`: sadece oluşturur, mesaj göndermez |
@@ -411,6 +411,14 @@ Bu not hukuki danışmanlık değildir; belirli bir amaç için kullanmadan önc
 ---
 
 ## Sürüm notları
+
+### 1.12.0
+
+- İmzala API 1.12.0 ile uyumlu.
+- Tek sözleşme ve toplu gönderim araçlarında taraf bazında telefon doğrulaması (`require_phone_verification`) desteklenir. Verilmezse davranış öncekiyle aynıdır.
+- Telefon doğrulaması açık ama telefonu boş taraf ve geçersiz ayar değeri ayrı mesajlarla bildirilir (sözleşme oluşmadı, kredi düşmedi).
+
+Önceki sürümlerle uyumludur; yeni girdi isteğe bağlıdır.
 
 ### 1.11.0
 
