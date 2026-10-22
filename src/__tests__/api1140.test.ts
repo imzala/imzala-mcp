@@ -20,7 +20,7 @@ describe('onaylayan kredisi araç açıklamalarında', () => {
   test.each(['sablondan_sozlesme_olustur', 'toplu_sozlesme_gonder'])('%s: kural koşuluyla anlatılır, mutlak "ücretsiz" yok', (name) => {
     const desc = toolDescription(name);
     expect(desc).toMatch(/en az bir imzacı varsa taraf sırasına göre ilk 3 onaylayan için kredi düşülmez/);
-    expect(desc).toMatch(/4\. ve sonraki onaylayanlar için yalnız doğrulama yöntemlerinin kredisi düşülür/);
+    expect(desc).toMatch(/4\. ve sonraki onaylayanlar için yalnız doğrulama yöntemlerinin kredisi düşülür \(imza ve koruma seviyesi kredisi düşülmez\)/);
     expect(desc).toMatch(/imzacı yoksa onaylayanlar imzacı gibi ücretlendirilir/);
     expect(desc).toMatch(/yeniden gönderim kredi kullanır/);
     expect(desc.toLocaleLowerCase('tr')).not.toMatch(/ücretsiz/);
@@ -37,7 +37,8 @@ describe('DISPATCH_PREPARATION_FAILED', () => {
       data: { id: DRAFT_ID, status: 'DRAFT_UNDISPATCHED' },
     }));
     expect(msg).toMatch(/TASLAK olarak oluşturuldu/);
-    expect(msg).toMatch(/kredi düşülmedi/);
+    expect(msg).toMatch(/kredi henüz düşülmedi/);
+    expect(msg).toMatch(/Kredi, taslak gönderildiğinde düşülür/);
     expect(msg).toMatch(/davet gönderilmedi/);
     expect(msg).toMatch(/tekrar ÇAĞIRMAYIN/);
     expect(msg).toContain(DRAFT_ID);
@@ -48,7 +49,8 @@ describe('DISPATCH_PREPARATION_FAILED', () => {
   test('toplu satır: aynı mesaj, taslak kimliği taşınır, ham metin yok', () => {
     const msg = formatBulkRowError({ row_index: 0, status: 'failed', error: 'DISPATCH_PREPARATION_FAILED', demand_id: DRAFT_ID, message: 'ham metin' } as never);
     expect(msg).toMatch(/TASLAK olarak oluşturuldu/);
-    expect(msg).toMatch(/kredi düşülmedi/);
+    expect(msg).toMatch(/kredi henüz düşülmedi/);
+    expect(msg).toMatch(/Kredi, taslak gönderildiğinde düşülür/);
     expect(msg).toContain(DRAFT_ID);
     expect(msg).not.toMatch(/ham metin/);
   });

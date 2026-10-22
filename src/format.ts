@@ -249,7 +249,7 @@ export function formatError(e: unknown): string {
     // left as a draft; no credit was spent and no invitation went out. A retry
     // of the same create call would open a second draft.
     const draft = demandId ? ` Taslak sözleşmenin kimliği: ${demandId}.` : '';
-    return `Gönderim öncesi kontrollerde beklenmedik bir hata oluştu. Sözleşme TASLAK olarak oluşturuldu, kredi düşülmedi, davet gönderilmedi.${draft} Bu aracı aynı içerikle tekrar ÇAĞIRMAYIN, ikinci bir taslak oluşur: sozlesme_durumu ile taslağı doğrulayın, taslak panelden gönderilir.`;
+    return `Gönderim öncesi kontrollerde beklenmedik bir hata oluştu. Sözleşme TASLAK olarak oluşturuldu, kredi henüz düşülmedi, davet gönderilmedi. Kredi, taslak gönderildiğinde düşülür.${draft} Bu aracı aynı içerikle tekrar ÇAĞIRMAYIN, ikinci bir taslak oluşur: sozlesme_durumu ile taslağı doğrulayın, taslak panelden gönderilir.`;
   }
   if (code === 'CREATE_FAILED') {
     // The contract says nothing about what survives on this code, so this
