@@ -325,7 +325,7 @@ JVBERi0xLjcKJ...
 
 ### `sablondan_sozlesme_olustur`
 
-Bir şablondan yeni sözleşme oluşturur. **Kredi harcar:** tutar imzacı sayısına, imza türüne, doğrulama yöntemine ve her imzacıya atanan belge sayısına göre hesaplanır (çok belgeli zarfta belge sayısı arttıkça kademeli indirim uygulanır). Harcanan kredi bu araçla geri alınmaz; iade yalnız belirli iptal ve silme hallerinde, hizmet koşullarına göre yapılır. Varsayılan olarak (`gonder` verilmez veya `false`) yalnızca sözleşmeyi oluşturur, taraflara herhangi bir mesaj GÖNDERMEZ; daveti sonradan panelden gönderirsiniz. `gonder: true` verirseniz taraflara hemen gerçek SMS ve e-posta daveti gönderilir.
+Bir şablondan yeni sözleşme oluşturur. **Kredi harcar:** tutar imzacı sayısına, imza türüne, doğrulama yöntemine ve her imzacıya atanan belge sayısına göre hesaplanır (çok belgeli zarfta belge sayısı arttıkça kademeli indirim uygulanır). Onaylayan rolündeki taraflar için: sözleşmede en az bir imzacı varsa taraf sırasına göre ilk 3 onaylayan için kredi düşülmez, 4. ve sonraki onaylayanlar için yalnız doğrulama yöntemlerinin kredisi düşülür; imzacı yoksa onaylayanlar imzacı gibi ücretlendirilir. Doğrulamasını başlatmış ya da tamamlamış bir tarafın iletişim ve kimlik bilgileri ile rolü sonradan değiştirilemez ve taraf sözleşmeden çıkarılamaz; yanlış kişiyse sözleşme iptal edilip yeniden gönderilir ve yeniden gönderim kredi kullanır. Harcanan kredi bu araçla geri alınmaz; iade yalnız belirli iptal ve silme hallerinde, hizmet koşullarına göre yapılır. Varsayılan olarak (`gonder` verilmez veya `false`) yalnızca sözleşmeyi oluşturur, taraflara herhangi bir mesaj GÖNDERMEZ; daveti sonradan panelden gönderirsiniz. `gonder: true` verirseniz taraflara hemen gerçek SMS ve e-posta daveti gönderilir.
 
 **Girdiler:**
 
@@ -411,6 +411,15 @@ Bu not hukuki danışmanlık değildir; belirli bir amaç için kullanmadan önc
 ---
 
 ## Sürüm notları
+
+### 1.14.0
+
+- İmzala API 1.14.0 ile uyumlu.
+- Sözleşme oluşturma ve toplu gönderim araçlarının açıklaması onaylayan kredisini anlatır: sözleşmede en az bir imzacı varsa taraf sırasına göre ilk 3 onaylayan için kredi düşülmez, 4. ve sonraki onaylayanlar için yalnız doğrulama yöntemlerinin kredisi düşülür; imzacı yoksa onaylayanlar imzacı gibi ücretlendirilir.
+- Doğrulamasını başlatmış ya da tamamlamış bir tarafın bilgileri ve rolü değiştirilemez, taraf çıkarılamaz. Bu durumu bildiren hata, isteğin tekrarlanmamasını, yanlış kişide sözleşmenin iptal edilip yeniden gönderilmesini ve yeniden gönderimin kredi kullandığını söyler.
+- Gönderim öncesi kontrolde beklenmedik hata (`DISPATCH_PREPARATION_FAILED`) ayrı bir mesajla bildirilir: sözleşme taslak olarak oluşmuştur, kredi düşülmemiştir; aracın yeniden çağrılmaması söylenir.
+
+Önceki sürümlerle uyumludur; araç girdileri değişmedi.
 
 ### 1.12.0
 

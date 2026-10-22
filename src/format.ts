@@ -244,6 +244,13 @@ export function formatError(e: unknown): string {
     const draft = demandId ? ` Taslak sözleşmenin kimliği: ${demandId}.` : '';
     return `Kredi hesabı tamamlanamadı. Sözleşme TASLAK olarak oluşturuldu, davet gönderilmedi.${draft} Kredi bakiyenizi whoami ile doğrulayın. Bu aracı idempotency_key vermeden tekrar ÇAĞIRMAYIN, ikinci bir taslak oluşur: önce sozlesmelerim ya da sozlesme_durumu ile taslağı bulun, sonra panelden gönderin. Aynı idempotency_key ile tekrar denemek güvenlidir.`;
   }
+  if (code === 'DISPATCH_PREPARATION_FAILED') {
+    // API 1.14.0: create, upload and bulk rows. The contract IS created and
+    // left as a draft; no credit was spent and no invitation went out. A retry
+    // of the same create call would open a second draft.
+    const draft = demandId ? ` Taslak sözleşmenin kimliği: ${demandId}.` : '';
+    return `Gönderim öncesi kontrollerde beklenmedik bir hata oluştu. Sözleşme TASLAK olarak oluşturuldu, kredi düşülmedi, davet gönderilmedi.${draft} Bu aracı aynı içerikle tekrar ÇAĞIRMAYIN, ikinci bir taslak oluşur: sozlesme_durumu ile taslağı doğrulayın, taslak panelden gönderilir.`;
+  }
   if (code === 'CREATE_FAILED') {
     // The contract says nothing about what survives on this code, so this
     // message claims NEITHER that a draft exists NOR that nothing was created.
@@ -277,6 +284,17 @@ export function formatError(e: unknown): string {
   }
   if (code === 'NOT_A_PDF') {
     return 'Sunucudan beklenen PDF alınamadı; dosya yazılmadı. Biraz sonra tekrar deneyin.';
+  }
+  if (code === 'VERIFIED_PARTY_CONTACT_LOCKED' || code === 'VERIFIED_PARTY_ROLE_LOCKED' || code === 'VERIFIED_PARTY_NOT_REMOVABLE') {
+    // API 1.14.0 rule. No /api/v1 operation returns these codes today (party
+    // edits are panel-only); mapped so a future path can never fall into the
+    // generic 409 text and invite a retry.
+    const what = code === 'VERIFIED_PARTY_NOT_REMOVABLE'
+      ? 'Doğrulamasını başlatmış ya da tamamlamış taraf sözleşmeden çıkarılamaz.'
+      : code === 'VERIFIED_PARTY_ROLE_LOCKED'
+        ? 'Doğrulamasını başlatmış ya da tamamlamış tarafın rolü değiştirilemez.'
+        : 'Doğrulamasını başlatmış ya da tamamlamış tarafın iletişim ve kimlik bilgileri değiştirilemez.';
+    return `${what} Değişiklik yapılmadı; aynı isteği tekrar denemeyin, sonuç değişmez. Taraf yanlış kişiyse sözleşme iptal edilip doğru bilgilerle yeniden gönderilmelidir; yeniden gönderim kredi kullanır. (Yapay zekâ asistanına: iptal ve yeniden gönderimi kullanıcının açık onayı olmadan yapma.)`;
   }
   if (demandId) {
     // Any other failure that still reports a contract id (e.g.

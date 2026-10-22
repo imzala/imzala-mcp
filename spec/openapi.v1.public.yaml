@@ -5,11 +5,11 @@
 openapi: 3.1.0
 info:
   title: imzala External API
-  version: 1.12.0
+  version: 1.14.0
   description: |
     imzala.org dış API'si — şablondan sözleşme oluşturma ve takip.
 
-    **Sürüm:** 1.12.0 · **Son güncelleme:** 2026-10-19
+    **Sürüm:** 1.14.0 · **Son güncelleme:** 2026-10-21
 
     ## Auth
     Tüm istekler `X-API-Key` header'ı gerektirir. API key dashboard üzerinden
@@ -61,6 +61,22 @@ info:
     - Onay vermiş bir onaylayan `dispatch` ile yeniden davet edilmez.
 
     Onaylayan içermeyen sözleşmelerde davet davranışı değişmez.
+
+    **Kredi:** Sözleşmede en az bir imzacı varsa, taraf listesindeki sıraya
+    göre ilk 3 onaylayan için kredi düşülmez; 4. ve sonraki onaylayanlar için
+    yalnız doğrulama yöntemlerinin kredisi düşülür (imza ve koruma seviyesi
+    kredisi düşülmez). İmzacı yoksa onaylayanlar imzacı gibi ücretlendirilir.
+    Kural API ve toplu gönderimle oluşturulan sözleşmelerde de geçerlidir.
+    Doğrulamasını başlatmış ya da tamamlamış bir tarafın iletişim ve kimlik
+    bilgileri ile rolü değiştirilemez ve taraf sözleşmeden çıkarılamaz; yanlış
+    kişiyse sözleşmeyi iptal edip yeniden gönderin. Yeniden gönderim kredi
+    kullanır. Kural, bu değişikliğin yayına alındığı tarihten sonra
+    gönderilen sözleşmelerde uygulanır (tarih, değişiklik duyurusunda yer
+    alır). Daha önce gönderilmiş sözleşmelerin tutarı değişmez; bu
+    sözleşmelerde `credits` alanı tahsil edilen tutarı gösterir. Daha önce
+    oluşturulmuş ancak gönderilmemiş taslaklarda onaylayan için ayrılmış
+    kredi gönderimde yeni kurala göre düzeltilir. Yanıtlardaki `credits`
+    alanları ve kredi ön kontrolü aynı kuralla hesaplanır.
 
     ## Rate Limit
     - Varsayılan: API anahtarı başına **60 istek/dakika**. Aşımda `429` döner ve
@@ -166,10 +182,11 @@ info:
     - **Kişisel webhook** (kişisel workspace'te) → sadece sizin kendi
       event'lerinizde tetiklenir
 
-    ### Olay tipleri (11)
+    ### Olay tipleri (12)
     | Olay | Tetikleyici |
     |------|-------------|
     | `demand.created` | Yeni sözleşme oluşturuldu |
+    | `demand.dispatched` | Sözleşme imzaya gönderildi |
     | `demand.completed` | Tüm taraflar imzaladı |
     | `demand.expired` | Sözleşme süresi doldu |
     | `party.signed` | Bir taraf imzaladı |
@@ -209,7 +226,7 @@ info:
     ```
 
     - `id` — `evt_<32-hex>`. Idempotency için kullanın (DB'de unique key).
-    - `type`: yukarıdaki 11 olay tipinden biri (lowercase).
+    - `type`: yukarıdaki 12 olay tipinden biri (lowercase).
     - `created_at` — olay zamanı (ISO 8601 UTC).
     - `data` — her olaya özel (aşağıda her olay için ayrı şema).
 
@@ -617,6 +634,7 @@ paths:
         yuvarlanır). AB nitelikli zaman damgası (`eidas_timestamp`) seçiliyse
         aynı indirim zarftaki farklı belge sayısına göre toplam üzerinden
         uygulanır. Tek belgeli şablonlarda tutar eski formülle bayt-aynıdır.
+        Onaylayan rolündeki tarafın kredisi için bkz. "Onaylayan".
 
         **Atamasız imzacı:** `dispatch_notifications` `false` gönderilmediği
         sürece, eşlenen bir taraf şablonun hiçbir belgesine atanmamışsa
@@ -951,6 +969,13 @@ paths:
             TASLAĞA düşürülür; gövdede `data.id` / `data.status:
             "DRAFT_UNDISPATCHED"` döner. Davet gönderilmez. İstek güvenle
             tekrarlanabilir (mutabakat idempotenttir).
+
+            `DISPATCH_PREPARATION_FAILED`: sözleşme oluşturuldu ama gönderim
+            öncesi kontrollerde beklenmedik bir hata oluştu. Sözleşme TASLAĞA
+            düşürülür; gövdede `data.id` / `data.status: "DRAFT_UNDISPATCHED"`
+            döner. Kredi düşülmez, davet gönderilmez. Aynı oluşturma isteğini
+            tekrarlamayın; sözleşmeyi `POST /demands/{demandId}/dispatch` ile
+            gönderin.
           content:
             application/json:
               schema:
@@ -964,6 +989,9 @@ paths:
                     example: Kredi mutabakatı yapılamadı
                   code:
                     type: string
+                    enum:
+                      - RECONCILE_FAILED
+                      - DISPATCH_PREPARATION_FAILED
                     example: RECONCILE_FAILED
                   data:
                     type: object
@@ -1167,7 +1195,9 @@ paths:
           olarak kalır (`demand_id` response'ta bulunur, davet
           gönderilmemiştir); mutabakat kredi-dışı bir hatayla düşerse satır
           `failed` (`error: "RECONCILE_FAILED"`) döner, sözleşme yine taslağa
-          düşer.
+          düşer. Gönderim öncesi kontroller beklenmedik bir hatayla düşerse
+          satır `failed` (`error: "DISPATCH_PREPARATION_FAILED"`, `demand_id`)
+          döner, sözleşme taslağa düşer ve kredi düşülmez.
         - Atamasız imzacı: çok belgeli şablonda eşlenen bir taraf hiçbir
           belgeye atanmamışsa (ve `options.dispatch_notifications` `false`
           DEĞİLSE) o satır `failed` (`error: "PARTY_WITHOUT_DOCUMENTS"`)
@@ -1522,7 +1552,7 @@ paths:
                                 MEMBER_LIMIT_EXCEEDED, PARTY_WITHOUT_DOCUMENTS,
                                 INVALID_DOCUMENT_SELECTION, INVALID_DOCUMENT_VARIABLES,
                                 TEMPLATE_DOCUMENTS_NOT_READY, DOCUMENT_SOURCE_UNAVAILABLE,
-                                RECONCILE_FAILED, CREATE_FAILED vb.)
+                                RECONCILE_FAILED, DISPATCH_PREPARATION_FAILED, CREATE_FAILED vb.)
                             message:
                               type: string
                               description: status=failed ise açıklama
@@ -2242,6 +2272,12 @@ paths:
             hatayla düştü. Sözleşme bu noktada ZATEN oluşturulmuştur ve davet
             gitmemiştir; gövdedeki `demand_id` ile durumu sorgulayın. İstek
             güvenle tekrarlanabilir (mutabakat idempotenttir).
+
+            `DISPATCH_PREPARATION_FAILED`: sözleşme oluşturuldu ama gönderim
+            öncesi kontrollerde beklenmedik bir hata oluştu. Sözleşme taslağa
+            düşürülür; gövdede `demand_id` döner. Kredi düşülmez, davet
+            gönderilmez. Aynı yükleme isteğini tekrarlamayın; sözleşmeyi
+            `POST /demands/{demandId}/dispatch` ile gönderin.
           content:
             application/json:
               schema:
@@ -2255,6 +2291,9 @@ paths:
                     example: Kredi mutabakatı yapılamadı
                   code:
                     type: string
+                    enum:
+                      - RECONCILE_FAILED
+                      - DISPATCH_PREPARATION_FAILED
                     example: RECONCILE_FAILED
                   demand_id:
                     type: string
@@ -4703,6 +4742,45 @@ webhooks:
       responses:
         '200':
           description: Webhook alındı (2xx döndürün; aksi halde retry tetiklenir)
+  demand.dispatched:
+    post:
+      tags:
+        - Webhooks
+      summary: Sözleşme imzaya gönderildi
+      description: |
+        Sözleşme imzaya gönderildiğinde her sözleşme için bir kez tetiklenir:
+        panelden gönderim, `POST /api/v1/demands/{demandId}/dispatch` ve
+        zamanlanmış toplu gönderim. Oluşturma uçlarının (`POST /api/v1/demands`,
+        `POST /api/v1/demands/upload`, `POST /api/v1/demands/bulk`) kendi
+        davetinde yayılmaz; bu sözleşmeler için olay `/dispatch` ile gönderimde
+        yayılır. Aynı sözleşmeye davetin yeniden gönderilmesi bu olayı tekrar
+        tetiklemez. Davetlerin tarafa ulaşıp ulaşmadığını bildirmez.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/WebhookEnvelope'
+                - type: object
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - demand.dispatched
+                    data:
+                      $ref: '#/components/schemas/WebhookDataDemandDispatched'
+            example:
+              id: evt_7a1c3e5b9d2f4a6c8e0b1d3f5a7c9e2b
+              type: demand.dispatched
+              created_at: '2026-10-19T09:30:00.000Z'
+              data:
+                demand_id: 9d08ed88-1234-5678-90ab-cdef12345678
+                title: Hizmet Sözleşmesi - Ayşe Yılmaz
+                dispatched_by: 3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b
+      responses:
+        '200':
+          description: Webhook alındı
   demand.completed:
     post:
       tags:
@@ -7328,6 +7406,24 @@ components:
           description: |
             Geçmiş event'i replay etmek için bayrak. Receiver yan etkileri
             (e-posta gönderme, ödeme tetikleme vs.) atlamalı.
+    WebhookDataDemandDispatched:
+      type: object
+      required:
+        - demand_id
+        - title
+        - dispatched_by
+      properties:
+        demand_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          nullable: true
+        dispatched_by:
+          type: string
+          format: uuid
+          nullable: true
+          description: Gönderimi yapan kullanıcının kimliği; belirlenemiyorsa `null`.
     WebhookDataDemandCompleted:
       type: object
       required:
