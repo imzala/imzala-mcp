@@ -19,9 +19,10 @@ function toolDescription(name: string): string {
 describe('onaylayan kredisi araç açıklamalarında', () => {
   test.each(['sablondan_sozlesme_olustur', 'toplu_sozlesme_gonder'])('%s: kural koşuluyla anlatılır, mutlak "ücretsiz" yok', (name) => {
     const desc = toolDescription(name);
-    expect(desc).toMatch(/en az bir imzacı varsa taraf sırasına göre ilk 3 onaylayan için kredi düşülmez/);
+    expect(desc).toMatch(/bilgileri girilmiş en az bir imzacı varsa taraf sırasına göre ilk 3 onaylayan için kredi düşülmez/);
     expect(desc).toMatch(/4\. ve sonraki onaylayanlar için yalnız doğrulama yöntemlerinin kredisi düşülür \(imza ve koruma seviyesi kredisi düşülmez\)/);
-    expect(desc).toMatch(/imzacı yoksa onaylayanlar imzacı gibi ücretlendirilir/);
+    expect(desc).toMatch(/bilgileri girilmiş imzacı yoksa \(boş bırakılan imzacı satırları sayılmaz\) onaylayanlar imzacı gibi ücretlendirilir/);
+    expect(desc).toMatch(/Kural 22 Ekim 2026'daki güncellemeden sonra gönderilen sözleşmelerde uygulanır; daha önce gönderilmiş sözleşmeler eski kurala tabidir\./);
     expect(desc).toMatch(/yeniden gönderim kredi kullanır/);
     expect(desc.toLocaleLowerCase('tr')).not.toMatch(/ücretsiz/);
     expect(desc).not.toContain('—');
