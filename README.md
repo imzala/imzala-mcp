@@ -365,7 +365,7 @@ Belge seçimi hatalarında araç ne yapılacağını söyleyen ayrı mesajlar d�
 
 ### `hatirlatma_gonder`
 
-Bir sözleşmede henüz imzalamamış taraflara **gerçek SMS ve e-posta hatırlatması** gönderir.
+Bir sözleşmede henüz imzalamamış taraflara **gerçek SMS ve e-posta hatırlatması** gönderir. Gönderilmiş sözleşmenin imzalama kredisi eksikse hatırlatma gönderilmez; kredi yüklendikten sonra davet panelden tekrar gönderilir.
 
 **Girdiler:**
 
@@ -412,12 +412,13 @@ Bu not hukuki danışmanlık değildir; belirli bir amaç için kullanmadan önc
 
 ## Sürüm notları
 
-### 1.14.0
+### 1.14.2
 
-- İmzala API 1.14.0 ile uyumlu.
+- İmzala API 1.14.2 ile uyumlu.
 - Sözleşme oluşturma ve toplu gönderim araçlarının açıklaması onaylayan kredisini anlatır: sözleşmede bilgileri girilmiş en az bir imzacı varsa taraf sırasına göre ilk 3 onaylayan için kredi düşülmez, 4. ve sonraki onaylayanlar için yalnız doğrulama yöntemlerinin kredisi düşülür (imza ve koruma seviyesi kredisi düşülmez); bilgileri girilmiş imzacı yoksa (boş bırakılan imzacı satırları sayılmaz) onaylayanlar imzacı gibi ücretlendirilir. Kural 22 Ekim 2026'daki güncellemeden sonra gönderilen sözleşmelerde uygulanır; daha önce gönderilmiş sözleşmeler eski kurala tabidir.
 - Doğrulamasını başlatmış ya da tamamlamış bir tarafın bilgileri ve rolü değiştirilemez, taraf çıkarılamaz. Bu durumu bildiren hata, isteğin tekrarlanmamasını, yanlış kişide sözleşmenin iptal edilip yeniden gönderilmesini ve yeniden gönderimin kredi kullandığını söyler.
 - Gönderim öncesi kontrolde beklenmedik hata (`DISPATCH_PREPARATION_FAILED`) ayrı bir mesajla bildirilir: sözleşme taslak olarak oluşmuştur, kredi henüz düşülmemiştir (taslak gönderildiğinde düşülür); aracın yeniden çağrılmaması söylenir.
+- `hatirlatma_gonder`: gönderilmiş sözleşmenin imzalama kredisi eksikse hatırlatma gönderilmez; araç tekrar denenmemesini ve kredi yükledikten sonra davetin panelden tekrar gönderilmesini söyler. Kredi durumu geçici olarak doğrulanamazsa hatırlatmanın gönderilmediğini ve biraz sonra tekrar denenebileceğini bildirir.
 
 Önceki sürümlerle uyumludur; araç girdileri değişmedi.
 

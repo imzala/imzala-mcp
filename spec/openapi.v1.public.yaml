@@ -5,11 +5,11 @@
 openapi: 3.1.0
 info:
   title: imzala External API
-  version: 1.14.0
+  version: 1.14.2
   description: |
     imzala.org dış API'si — şablondan sözleşme oluşturma ve takip.
 
-    **Sürüm:** 1.14.0 · **Son güncelleme:** 2026-10-21
+    **Sürüm:** 1.14.2 · **Son güncelleme:** 2026-10-23
 
     ## Auth
     Tüm istekler `X-API-Key` header'ı gerektirir. API key dashboard üzerinden
@@ -62,18 +62,19 @@ info:
 
     Onaylayan içermeyen sözleşmelerde davet davranışı değişmez.
 
-    **Kredi:** Sözleşmede en az bir imzacı varsa, taraf listesindeki sıraya
-    göre ilk 3 onaylayan için kredi düşülmez; 4. ve sonraki onaylayanlar için
-    yalnız doğrulama yöntemlerinin kredisi düşülür (imza ve koruma seviyesi
-    kredisi düşülmez). İmzacı yoksa onaylayanlar imzacı gibi ücretlendirilir.
-    Kural API ve toplu gönderimle oluşturulan sözleşmelerde de geçerlidir.
-    Doğrulamasını başlatmış ya da tamamlamış bir tarafın iletişim ve kimlik
-    bilgileri ile rolü değiştirilemez ve taraf sözleşmeden çıkarılamaz; yanlış
-    kişiyse sözleşmeyi iptal edip yeniden gönderin. Yeniden gönderim kredi
-    kullanır. Kural, bu değişikliğin yayına alındığı tarihten sonra
-    gönderilen sözleşmelerde uygulanır (tarih, değişiklik duyurusunda yer
-    alır). Daha önce gönderilmiş sözleşmelerin tutarı değişmez; bu
-    sözleşmelerde `credits` alanı tahsil edilen tutarı gösterir. Daha önce
+    **Kredi:** Sözleşmede bilgileri girilmiş en az bir imzacı varsa, taraf
+    listesindeki sıraya göre ilk 3 onaylayan için kredi düşülmez; 4. ve sonraki
+    onaylayanlar için yalnız doğrulama yöntemlerinin kredisi düşülür (imza ve
+    koruma seviyesi kredisi düşülmez). Bilgileri girilmiş imzacı yoksa (boş
+    bırakılan imzacı satırları sayılmaz) onaylayanlar imzacı gibi
+    ücretlendirilir. Kural API ve toplu gönderimle oluşturulan sözleşmelerde de
+    geçerlidir. Doğrulamasını başlatmış ya da tamamlamış bir tarafın iletişim ve
+    kimlik bilgileri ile rolü değiştirilemez ve taraf sözleşmeden çıkarılamaz;
+    yanlış kişiyse sözleşmeyi iptal edip yeniden gönderin. Yeniden gönderim
+    kredi kullanır. Kural, 22 Ekim 2026'daki güncellemeden sonra gönderilen
+    sözleşmelerde uygulanır; daha önce gönderilmiş sözleşmeler eski kurala
+    tabidir. Bu sözleşmelerin tutarı değişmez ve `credits` alanı tahsil edilen
+    tutarı gösterir. Daha önce
     oluşturulmuş ancak gönderilmemiş taslaklarda onaylayan için ayrılmış
     kredi gönderimde yeni kurala göre düzeltilir. Yanıtlardaki `credits`
     alanları ve kredi ön kontrolü aynı kuralla hesaplanır.
@@ -1910,6 +1911,16 @@ paths:
                 $ref: '#/components/schemas/StandardError'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '402':
+          description: |
+            **INSUFFICIENT_CREDITS:** Gönderilmiş sözleşmenin imzalama kredisi
+            eksik (sözleşmedeki güncel taraf ve doğrulama ayarlarının bedeli
+            tahsil edilmemiş). Hatırlatma gönderilmez. Kredi yükleyip daveti
+            tekrar gönderin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
         '404':
           description: |
             **DEMAND_NOT_FOUND** — Sözleşme bu workspace'te (ya da kişisel
@@ -1993,6 +2004,16 @@ paths:
                       retry_after_seconds:
                         type: integer
                         description: Sadece RATE_LIMITED'de
+        '500':
+          description: |
+            **CREDIT_CHECK_FAILED:** Sözleşmenin kredi durumu şu anda
+            doğrulanamadı; hatırlatma gönderilmedi. Geçici bir durumdur, biraz
+            sonra tekrar deneyin. Diğer beklenmeyen hatalar `INTERNAL_ERROR`
+            koduyla döner.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
   /api/v1/demands/upload:
     post:
       tags:
@@ -2598,7 +2619,13 @@ paths:
 
         `{{signer.email}}`, `{{signer.phone}}`, `{{signer.government_id}}`,
 
-        `{{signer.birth_date}}`, `{{signer.sign_date}}`, `{{contract.title}}`,
+        `{{signer.birth_date}}`, `{{signer.sign_date}}`,
+
+        `{{signer.company_name}}`, `{{signer.tax_number}}`, `{{signer.tax_office}}`,
+
+        `{{signer.company_address}}`, `{{signer.company_district}}`,
+
+        `{{signer.company_city}}`, `{{contract.title}}`,
 
         `{{sender.full_name}}`, `{{current.date}}`, `{{current.datetime}}`.
 
@@ -5476,6 +5503,15 @@ components:
               imzalanmadıysa boş. Source: server-computed
               (`DemandContractParty.sign_timestamp`), API üzerinden
               settable DEĞİL.
+
+            İmzalayanın şirketi (party-bağlı, render anında çözülür; taraf
+            kurumsal değilse boş):
+            - `signer.company_name`: Şirket unvanı.
+            - `signer.tax_number`: Vergi numarası (VKN, şahıs şirketinde TCKN).
+            - `signer.tax_office`: Vergi dairesi.
+            - `signer.company_address`: Şirket adresi.
+            - `signer.company_district`: Şirket adresinin ilçesi.
+            - `signer.company_city`: Şirket adresinin ili.
 
             Sözleşme: `contract.title`, `contract.created_date`,
             `contract.expiry_date`, `contract.id`

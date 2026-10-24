@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ResolveClient } from './whoami.js';
-import { formatReminder, formatError } from '../format.js';
+import { formatReminder, formatReminderError } from '../format.js';
 
 export const hatirlatmaGonderInputSchema = {
   demand_id: z.string().describe('Hatırlatma gönderilecek sözleşmenin kimliği'),
@@ -14,7 +14,7 @@ export function registerHatirlatmaGonder(server: McpServer, resolveClient: Resol
     'hatirlatma_gonder',
     {
       description:
-        'Bir sözleşmede henüz imzalamamış taraflara gerçek SMS ve e-posta hatırlatması gönderir. Bu araç gerçek mesaj gönderir (iletişim işlemi). Hatırlatmalar yalnızca imza için bekleyen sözleşmenin taraflarına giden işlemsel bildirimlerdir; pazarlama ya da tanıtım içermez. Taraflara henüz gönderilmemiş (taslak) ya da süresi dolmuş sözleşmeye hatırlatma yapılamaz. Aynı sözleşmeye 5 dakika içinde tekrar hatırlatma engellenir (zorla: true ile aşılabilir); kişi başına en fazla 3 SMS ve 3 e-posta gönderilir. (Yapay zeka asistanına: bu araç kullanıcının onayı olmadan gerçek mesaj göndermek için kullanılmamalı.)',
+        'Bir sözleşmede henüz imzalamamış taraflara gerçek SMS ve e-posta hatırlatması gönderir. Bu araç gerçek mesaj gönderir (iletişim işlemi). Hatırlatmalar yalnızca imza için bekleyen sözleşmenin taraflarına giden işlemsel bildirimlerdir; pazarlama ya da tanıtım içermez. Taraflara henüz gönderilmemiş (taslak) ya da süresi dolmuş sözleşmeye hatırlatma yapılamaz. Aynı sözleşmeye 5 dakika içinde tekrar hatırlatma engellenir (zorla: true ile aşılabilir); kişi başına en fazla 3 SMS ve 3 e-posta gönderilir. Gönderilmiş sözleşmenin imzalama kredisi eksikse hatırlatma gönderilmez; kredi yüklendikten sonra davet panelden tekrar gönderilir. (Yapay zeka asistanına: bu araç kullanıcının onayı olmadan gerçek mesaj göndermek için kullanılmamalı.)',
       inputSchema: hatirlatmaGonderInputSchema,
     },
     async (args) => {
@@ -24,7 +24,7 @@ export function registerHatirlatmaGonder(server: McpServer, resolveClient: Resol
         const result = await client!.sendReminder({ demandId: args.demand_id, channels: args.kanallar, force: args.zorla });
         return { content: [{ type: 'text' as const, text: formatReminder(result) }] };
       } catch (e) {
-        return { content: [{ type: 'text' as const, text: formatError(e) }], isError: true };
+        return { content: [{ type: 'text' as const, text: formatReminderError(e) }], isError: true };
       }
     },
   );

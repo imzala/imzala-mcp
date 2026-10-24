@@ -611,6 +611,23 @@ function reasonSuffix(d: { status: string; reason?: string }): string {
   return /^[a-z][a-z_ ]{0,39}( \(\d{1,3}\))?$/.test(d.reason) ? ` (${d.reason})` : '';
 }
 
+/**
+ * hatirlatma_gonder errors. API 1.14.2 adds two credit outcomes to
+ * POST /api/v1/demands/{id}/reminders; the generic INSUFFICIENT_CREDITS text
+ * talks about contract creation and would mislead here. Everything else goes
+ * through formatError unchanged.
+ */
+export function formatReminderError(e: unknown): string {
+  const code = e instanceof ImzalaApiError ? asApiCode(e.code) : undefined;
+  if (code === 'INSUFFICIENT_CREDITS') {
+    return 'Hatırlatma gönderilmedi: bu sözleşmenin imzalama kredisi eksik (sözleşmedeki güncel taraf ve doğrulama ayarlarının bedeli tahsil edilmemiş). Bu aracı tekrar denemeyin, sonuç değişmez. Kredi yükledikten sonra daveti panelden tekrar gönderin; güncel bakiye için whoami.';
+  }
+  if (code === 'CREDIT_CHECK_FAILED') {
+    return 'Hatırlatma gönderilmedi: sözleşmenin kredi durumu şu anda doğrulanamadı. Bu geçici bir durumdur; biraz sonra tekrar deneyebilirsiniz.';
+  }
+  return formatError(e);
+}
+
 export function formatReminder(r: ReminderResult): string {
   const lines: string[] = [];
   lines.push(`Hatırlatma sonucu (sözleşme ${r.demand_id}):`);
