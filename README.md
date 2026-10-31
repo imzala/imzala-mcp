@@ -412,6 +412,13 @@ Bu not hukuki danışmanlık değildir; belirli bir amaç için kullanmadan önc
 
 ## Sürüm notları
 
+### 1.14.4
+
+- İmzala API 1.14.4 ile uyumlu.
+- `hatirlatma_gonder` açıklaması kurum içi kapsamı anlatır: varsayılan rol izinlerinde OWNER ve ADMIN kurumun tüm sözleşmelerine, MEMBER yalnız kendi oluşturduğu sözleşmelere hatırlatma gönderebilir; kurumun izin ayarları bu kapsamı değiştirebilir. Erişim yoksa sözleşme bulunamadı hatası döner.
+
+Önceki sürümlerle uyumludur; araç girdileri değişmedi.
+
 ### 1.14.3
 
 - İmzala API 1.14.3 ile uyumlu.
