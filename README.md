@@ -415,7 +415,7 @@ Bu not hukuki danışmanlık değildir; belirli bir amaç için kullanmadan önc
 ### 1.14.3
 
 - İmzala API 1.14.3 ile uyumlu.
-- `sozlesme_iptal` ve `sozlesme_sil` açıklamaları kredi iadesi koşullarını anlatır: imza bekleyen ve toplu olmayan sözleşmede hiçbir taraf imzalamamış ya da onaylamamışsa ve bekleyen bir mobil imza isteği yoksa gönderimde düşülen kredi iade edilir; tamamlanmış ücretli doğrulama adımlarının kredisi iadeden düşülür. İadeye sunucu karar verir.
+- `sozlesme_iptal` ve `sozlesme_sil` açıklamaları kredi iadesi koşullarını anlatır: imza bekleyen ve toplu olmayan sözleşmede hiçbir taraf imzalamamış ya da onaylamamışsa ve bekleyen bir mobil imza isteği yoksa gönderimde düşülen kredi iade edilir; tamamlanmış ücretli doğrulama adımlarının kredisi iadeden düşülür. İade koşulları işlem anındaki duruma göre sunucu tarafında değerlendirilir; iade araçla ayrıca istenemez. İptal yanıtı iade edilen krediyi yalnız sunucu bildirdiğinde gösterir.
 
 Önceki sürümlerle uyumludur; araç girdileri değişmedi.
 

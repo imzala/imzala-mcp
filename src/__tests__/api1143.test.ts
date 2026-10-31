@@ -19,9 +19,11 @@ describe.each(['sozlesme_iptal', 'sozlesme_sil'])('%s kredi iadesi', (name) => {
     expect(description).toMatch(/Tamamlanmış ücretli doğrulama adımlarının kredisi iadeden düşülür/);
   });
 
-  test('iadeyi vaat etmez, kararı sunucuya bırakır', () => {
+  test('iadeyi vaat etmez, asistana iade iddiası yasak', () => {
     expect(description).toMatch(/Koşullar sağlanırsa/);
-    expect(description).toMatch(/iadeye sunucu karar verir/);
+    expect(description).toMatch(/sunucu tarafında değerlendirilir; iade bu araçla ayrıca istenemez/);
+    expect(description).toMatch(/yanıtta iade edilen kredi açıkça yazmıyorsa söyleme/);
+    expect(description).not.toMatch(/karar verir/);
     expect(description).not.toContain('—');
   });
 });
