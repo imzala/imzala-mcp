@@ -18,12 +18,12 @@ function mockFetchOk(body: unknown) {
 }
 
 describe('getTemplate', () => {
-  test('GETs /api/v1/templates/:id and url-encodes id', async () => {
+  test('GETs /api/v1/templates/:id with include=stamp_variables and url-encodes id', async () => {
     const fetchFn = mockFetchOk({ success: true, data: DETAIL });
     const c = makeClient({ apiKey: 'imz_x', baseUrl: 'https://api-prd.imzala.org', fetch: fetchFn as unknown as typeof fetch });
     await c.getTemplate('t 1');
     expect(fetchFn).toHaveBeenCalledWith(
-      'https://api-prd.imzala.org/api/v1/templates/t%201',
+      'https://api-prd.imzala.org/api/v1/templates/t%201?include=stamp_variables',
       { method: 'GET', headers: { 'X-API-Key': 'imz_x', 'User-Agent': `imzala-mcp/${SERVER_VERSION}` } },
     );
   });

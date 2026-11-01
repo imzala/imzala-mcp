@@ -412,6 +412,13 @@ Bu not hukuki danışmanlık değildir; belirli bir amaç için kullanmadan önc
 
 ## Sürüm notları
 
+### 1.14.7
+
+- İmzala API 1.14.7 ile uyumlu.
+- Şablon detayında gönderenin kaşesi (`stamp`) artık yalnız `include=stamp_variables` istendiğinde listelenir; `sablon_detay` bunu her zaman ister, bu yüzden kaşe değişkenleri ve firma adı notu görünmeye devam eder.
+
+Önceki sürümlerle uyumludur; araç girdileri değişmedi.
+
 ### 1.14.6
 
 - İmzala API 1.14.6 ile uyumlu.

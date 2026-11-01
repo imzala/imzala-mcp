@@ -754,7 +754,9 @@ export function makeClient(o: ImzalaClientOpts): {
   }
 
   async function getTemplate(id: string): Promise<TemplateDetailResult> {
-    const res = await fetchFn(`${baseUrl}/api/v1/templates/${encodeURIComponent(id)}`, {
+    // API 1.14.7: the sender stamp is listed only on opt-in; this client
+    // tolerates unknown item types, so it always asks for it.
+    const res = await fetchFn(`${baseUrl}/api/v1/templates/${encodeURIComponent(id)}?include=stamp_variables`, {
       method: 'GET',
       headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
     });

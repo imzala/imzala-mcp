@@ -5,11 +5,11 @@
 openapi: 3.1.0
 info:
   title: imzala External API
-  version: 1.14.6
+  version: 1.14.7
   description: |
     imzala.org dış API'si — şablondan sözleşme oluşturma ve takip.
 
-    **Sürüm:** 1.14.6 · **Son güncelleme:** 2026-11-01
+    **Sürüm:** 1.14.7 · **Son güncelleme:** 2026-11-01
 
     ## Auth
     Tüm istekler `X-API-Key` header'ı gerektirir. API key dashboard üzerinden
@@ -432,6 +432,11 @@ paths:
         dropdown, text). Slug bazında dedupe; multi-party şablonlarda aynı
         slug birden fazla partide olabilir, her parti için ayrı satır.
 
+        Gönderenin kaşesi (`item_type: stamp`) `variables` listesinde
+        varsayılan olarak yer almaz; listelenmesi için
+        `include=stamp_variables` gönderin. Kaşe slug'ına değer göndermek
+        için bu parametre gerekmez.
+
         `documents` şablonun zarf belgelerini `order` sırasıyla döndürür;
         `documents[].id` sözleşme oluştururken `documents.include` /
         `documents.exclude` listelerinde kullanılır.
@@ -442,6 +447,17 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: include
+          in: query
+          required: false
+          description: |
+            Yanıta varsayılan olarak girmeyen içerik. Virgülle ayrılmış
+            birden fazla değer alabilir; tanınmayan değerler yok sayılır.
+            `stamp_variables`: gönderenin kaşesini (`item_type: stamp`)
+            `variables` listesine ekler.
+          schema:
+            type: string
+            example: stamp_variables
       responses:
         '200':
           description: Başarılı
@@ -5496,10 +5512,12 @@ components:
             - text
             - stamp
           description: |
-            `stamp`: gönderenin kaşesi. Bu slug'a `StampData` nesnesi ya da
-            düz metin (firma adı olarak yazılır) gönderebilirsiniz (bkz.
-            `CreateDemandRequest.variables`). İmzalayanın dolduracağı ya da
-            kütüphaneden gelen kaşe bu listede yer almaz.
+            `stamp`: gönderenin kaşesi. Yalnız `GET /api/v1/templates/{id}`
+            isteğinde `include=stamp_variables` gönderildiğinde listelenir.
+            Bu slug'a `StampData` nesnesi ya da düz metin (firma adı olarak
+            yazılır) gönderebilirsiniz (bkz. `CreateDemandRequest.variables`).
+            İmzalayanın dolduracağı ya da kütüphaneden gelen kaşe bu listede
+            yer almaz.
         is_required:
           type: boolean
         default_source:
