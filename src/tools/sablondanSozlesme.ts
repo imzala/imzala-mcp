@@ -25,7 +25,7 @@ const DOCUMENTS_DESCRIPTION =
 export const sablondanSozlesmeInputSchema = {
   template_id: z.string().describe('Sözleşmenin oluşturulacağı şablonun kimliği'),
   parties: z.array(partySchema).min(1).describe('Taraflar. Her taraf template_party_id + ad soyad + (email veya phone) gerektirir. Zorunlu taraflar eksikse işlem başarısız olur; sablon_detay ile şablonun taraflarını ve değişkenlerini kontrol edin.'),
-  variables: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().describe('Şablon geneli değişkenler (slug: değer)'),
+  variables: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().describe('Şablon geneli değişkenler (slug: değer). Tipi stamp olan (gönderenin kaşesi) slug\'a verilen düz metin firma adı olarak yazılır.'),
   documents: documentSelectionSchema.optional().describe(DOCUMENTS_DESCRIPTION),
   gonder: z.boolean().optional().describe('true verilirse taraflara HEMEN gerçek SMS ve e-posta daveti gönderilir. Varsayılan (false) sadece sözleşmeyi oluşturur, davet göndermez.'),
   idempotency_key: z.string().optional().describe('Kullanıcının verdiği iş referansı (ör. sipariş numarası). Aynı anahtar ve aynı içerikle yapılan tekrar istek yeni sözleşme oluşturmaz, ilk sözleşmeyi döndürür. 1-255 karakter, boşluksuz, yalnız ASCII (Türkçe karakter olmaz). (Yapay zeka asistanına: kullanıcı vermediyse anahtar UYDURMA; rastgele anahtar sunucunun tekrar korumasını devre dışı bırakır. Yeniden denemede AYNI anahtarı kullan.)'),

@@ -5,11 +5,11 @@
 openapi: 3.1.0
 info:
   title: imzala External API
-  version: 1.14.5
+  version: 1.14.6
   description: |
     imzala.org dış API'si — şablondan sözleşme oluşturma ve takip.
 
-    **Sürüm:** 1.14.5 · **Son güncelleme:** 2026-11-01
+    **Sürüm:** 1.14.6 · **Son güncelleme:** 2026-11-01
 
     ## Auth
     Tüm istekler `X-API-Key` header'ı gerektirir. API key dashboard üzerinden
@@ -5494,6 +5494,12 @@ components:
             - date
             - dropdown
             - text
+            - stamp
+          description: |
+            `stamp`: gönderenin kaşesi. Bu slug'a `StampData` nesnesi ya da
+            düz metin (firma adı olarak yazılır) gönderebilirsiniz (bkz.
+            `CreateDemandRequest.variables`). İmzalayanın dolduracağı ya da
+            kütüphaneden gelen kaşe bu listede yer almaz.
         is_required:
           type: boolean
         default_source:
@@ -6101,8 +6107,17 @@ components:
             bulunmayan slug 400 `INVALID_VARIABLES`
             (`details.reason: object_value_for_non_stamp`), geçersiz kaşe
             verisi 400 `INVALID_STAMP_DATA` döner; ikisinde de sözleşme
-            oluşturulmaz, kredi düşülmez. Kaşe slug'ına düz metin gönderilirse
-            kaşeye yazılmaz ve `variables_ignored` içinde görünür. Toplu
+            oluşturulmaz, kredi düşülmez. Kaşe slug'ına düz metin (string ya
+            da number) gönderilirse firma adı (`companyName`) olarak yazılır
+            ve `variables_applied` içinde sayılır; alt alanlar (vergi dairesi,
+            vergi no, adres) için nesne gönderin. Düz metin yalnız gönderenin
+            kaşesine (`INLINE`) yazılır; imzalayanın dolduracağı ya da
+            kütüphaneden gelen kaşeye, boş değere, `null` / boolean değere ve
+            500 karakteri aşan metne uygulanmaz, bu durumda slug
+            `variables_ignored` içinde görünür (istek reddedilmez, metin
+            kırpılmaz). Aynı slug'a hem düz metin hem nesne gelirse nesne
+            kazanır; nesne `companyName` taşımıyorsa düz metin firma adı
+            olarak kalır. Bu kurallar toplu uçlarda da geçerlidir. Toplu
             uçlar nesne değeri desteklemez (400 `INVALID_VARIABLES`,
             `details.reason: unsupported_endpoint`).
           example:

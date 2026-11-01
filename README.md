@@ -412,6 +412,13 @@ Bu not hukuki danışmanlık değildir; belirli bir amaç için kullanmadan önc
 
 ## Sürüm notları
 
+### 1.14.6
+
+- İmzala API 1.14.6 ile uyumlu.
+- Şablon değişkenlerinde yeni tip `stamp` (gönderenin kaşesi). `sablon_detay` bu değişkenlerde düz metnin firma adı olarak kaşeye yazıldığını belirtir; `sablondan_sozlesme_olustur` ve `toplu_sozlesme_gonder` bu slug'a verilen düz metni firma adı olarak gönderir (en çok 500 karakter). Vergi dairesi, vergi no ve adres gibi alt alanlar panelden doldurulur.
+
+Önceki sürümlerle uyumludur; araç girdileri değişmedi.
+
 ### 1.14.5
 
 - İmzala API 1.14.5 ile uyumlu.

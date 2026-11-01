@@ -544,7 +544,10 @@ export function formatTemplateDetail(t: TemplateDetailResult): string {
     for (const v of t.variables) {
       const req = v.is_required ? ', zorunlu' : '';
       const def = v.default_source ? `, otomatik kaynak: ${v.default_source}` : '';
-      lines.push(`- ${v.slug} (${v.label}), tip: ${v.item_type}${req}${def}`);
+      const stamp = v.item_type === 'stamp'
+        ? ', gönderenin kaşesi: düz metin firma adı olarak yazılır (en çok 500 karakter; vergi dairesi, vergi no ve adres panelden)'
+        : '';
+      lines.push(`- ${v.slug} (${v.label}), tip: ${v.item_type}${req}${def}${stamp}`);
     }
   }
   return lines.join('\n');
