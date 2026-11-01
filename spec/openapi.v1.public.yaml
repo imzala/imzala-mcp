@@ -5,11 +5,11 @@
 openapi: 3.1.0
 info:
   title: imzala External API
-  version: 1.14.4
+  version: 1.14.5
   description: |
     imzala.org dış API'si — şablondan sözleşme oluşturma ve takip.
 
-    **Sürüm:** 1.14.4 · **Son güncelleme:** 2026-10-31
+    **Sürüm:** 1.14.5 · **Son güncelleme:** 2026-11-01
 
     ## Auth
     Tüm istekler `X-API-Key` header'ı gerektirir. API key dashboard üzerinden
@@ -6883,6 +6883,17 @@ components:
             - checkbox
             - radio
             - stamp
+            - contract_number
+          description: |
+            `contract_number` (numaratör): sözleşmeye gönderimde verilen kurum
+            tanımlı sözleşme numarası. Salt okunur ve tarafsızdır (`party_id`
+            null); değeri sözleşme gönderildikten sonra alanın metnidir. Bu alan
+            API ile oluşturulamaz: `POST /demands/{id}/items` isteğindeki
+            `contract_number` öğeleri yok sayılır, sözleşmedeki mevcut alan
+            silinmez. Numaratörü seçilmemiş ya da kullanılamayan (silinmiş,
+            arşivlenmiş) bir numaratör alanı içeren sözleşme gönderilemez:
+            oluşturma ve gönderim istekleri kredi düşülmeden 409
+            `CONTRACT_NUMBER_SEQUENCE_UNAVAILABLE` döner.
         position_x:
           type: number
           minimum: 0

@@ -412,6 +412,14 @@ Bu not hukuki danışmanlık değildir; belirli bir amaç için kullanmadan önc
 
 ## Sürüm notları
 
+### 1.14.5
+
+- İmzala API 1.14.5 ile uyumlu.
+- Sözleşme oluşturma, toplu gönderim ve gönderimde yeni 409 `CONTRACT_NUMBER_SEQUENCE_UNAVAILABLE` ayrı bir mesajla bildirilir: sözleşmedeki numaratör alanı için kullanılabilir numaratör yoktur, sözleşme gönderilmemiştir, kredi düşülmemiş ve davet gönderilmemiştir; oluşturmada sözleşme taslak olarak kalır ve kimliği gösterilir. Aracın aynı içerikle tekrar çağrılmaması, numaratörün panelden seçilmesi söylenir.
+- Sözleşme öğe türlerine salt okunur `contract_number` eklendi (API ile oluşturulamaz).
+
+Önceki sürümlerle uyumludur; araç girdileri değişmedi.
+
 ### 1.14.4
 
 - İmzala API 1.14.4 ile uyumlu.

@@ -251,6 +251,13 @@ export function formatError(e: unknown): string {
     const draft = demandId ? ` Taslak sözleşmenin kimliği: ${demandId}.` : '';
     return `Gönderim öncesi kontrollerde beklenmedik bir hata oluştu. Sözleşme TASLAK olarak oluşturuldu, kredi henüz düşülmedi, davet gönderilmedi. Kredi, taslak gönderildiğinde düşülür.${draft} Bu aracı aynı içerikle tekrar ÇAĞIRMAYIN, ikinci bir taslak oluşur: sozlesme_durumu ile taslağı doğrulayın, taslak panelden gönderilir.`;
   }
+  if (code === 'CONTRACT_NUMBER_SEQUENCE_UNAVAILABLE') {
+    // API 1.14.5: the contract has a contract-number field whose numbering
+    // sequence is unselected, deleted or archived. Create leaves the row as a
+    // draft (data.id); dispatch leaves it unsent. No credit, no invitation.
+    const draft = demandId ? ` Taslak sözleşmenin kimliği: ${demandId}.` : '';
+    return `Sözleşmedeki numaratör alanı için kullanılabilir bir numaratör yok (seçilmemiş, silinmiş ya da arşivlenmiş). Sözleşme gönderilmedi; kredi düşülmedi, davet gönderilmedi.${draft} Bu aracı aynı içerikle tekrar ÇAĞIRMAYIN, oluşturmada ikinci bir taslak açılır: numaratör alanına İmzala.org panelinden geçerli bir numaratör seçin, taslağı oradan gönderin.`;
+  }
   if (code === 'CREATE_FAILED') {
     // The contract says nothing about what survives on this code, so this
     // message claims NEITHER that a draft exists NOR that nothing was created.
