@@ -5,11 +5,11 @@
 openapi: 3.1.0
 info:
   title: imzala External API
-  version: 1.14.7
+  version: 1.15.1
   description: |
     imzala.org dış API'si — şablondan sözleşme oluşturma ve takip.
 
-    **Sürüm:** 1.14.7 · **Son güncelleme:** 2026-11-01
+    **Sürüm:** 1.15.1 · **Son güncelleme:** 2026-11-06
 
     ## Auth
     Tüm istekler `X-API-Key` header'ı gerektirir. API key dashboard üzerinden
@@ -1199,7 +1199,8 @@ paths:
           fiyatlı bir indirim uygulanır (1 belge %0, 2 belge %30, 3 ve üzeri
           %50, imzacı başına ayrı yukarı yuvarlanır; bkz. `POST /demands`
           "Kredi (çok belgeli zarf)" bölümü). PAdES seviye eki yalnız QES'te
-          uygulanır: B-T +0, B-LT +0, **B-LTA +1**. Doğrulama yöntemlerinden
+          uygulanır: B-LT +0, **B-LTA +1** (`PAdES_BASELINE_T` kabul edilir ve
+          B-LT olarak işlenir, ücreti aynıdır). Doğrulama yöntemlerinden
           `ocr_id` ve `liveness` +1 kredi, diğerleri 0'dır. `options`
           batch-seviye geçerlidir ve şablon varsayılanını ezer. İstek başında N satırın
           toplam maliyeti için yeterlilik kontrol edilir (yetersizse 402,
@@ -1332,8 +1333,10 @@ paths:
                         - PAdES_BASELINE_LT
                         - PAdES_BASELINE_LTA
                       description: >-
-                        🔴 Faturayı etkiler. Yalnız enable_qes ile anlamlıdır: B-T +0, B-LT +0,
-                        B-LTA +1 kredi (imzacı başına).
+                        🔴 Faturayı etkiler. Yalnız enable_qes ile anlamlıdır: B-LT +0, B-LTA +1
+                        kredi (imzacı başına). En düşük seviye B-LT'dir: PAdES_BASELINE_T geriye
+                        dönük uyum için kabul edilir, B-LT olarak işlenir ve kaydedilir (ücret farkı
+                        yoktur).
                     eidas_timestamp:
                       type: boolean
                       description: >-

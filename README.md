@@ -412,6 +412,13 @@ Bu not hukuki danışmanlık değildir; belirli bir amaç için kullanmadan önc
 
 ## Sürüm notları
 
+### 1.15.1
+
+- İmzala API 1.15.1 ile uyumlu.
+- API yalnız açıklama değiştirdi: toplu gönderimde nitelikli elektronik imza seviyesi için en düşük seviye B-LT oldu (`PAdES_BASELINE_T` kabul edilir ve B-LT olarak işlenir, kredi değişmez). Bu sunucunun araçları imza seviyesi göndermez; davranış değişmedi.
+
+Önceki sürümlerle uyumludur; araç girdileri değişmedi.
+
 ### 1.14.7
 
 - İmzala API 1.14.7 ile uyumlu.
