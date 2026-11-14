@@ -84,6 +84,15 @@ export interface ContractTerm {
   notice_deadline?: string | null;
 }
 
+/**
+ * API 1.17.0: a contract number issued from a numbering sequence defined in the
+ * panel. Given when the contract is sent for signature; never changes after.
+ */
+export interface ContractNumber {
+  sequence_id: string;
+  value: string;
+}
+
 export interface DemandStatusResult {
   id: string;
   title: string;
@@ -98,6 +107,8 @@ export interface DemandStatusResult {
   term?: ContractTerm | null;
   /** Absent before 1.8.x; `[]` on contracts that predate envelope documents. */
   documents?: DemandDocument[];
+  /** API 1.17.0. Absent on older deployments; `[]` when no number was issued. */
+  contract_numbers?: ContractNumber[];
 }
 
 export interface TemplatePartyBrief {
@@ -258,6 +269,8 @@ export interface DemandListItem {
   pdf_url: string | null;
   archived_at?: string | null;
   term_end_date?: string | null;
+  /** API 1.17.0. Absent on older deployments; `[]` when no number was issued. */
+  contract_numbers?: ContractNumber[];
 }
 export interface DemandListResult {
   demands: DemandListItem[];

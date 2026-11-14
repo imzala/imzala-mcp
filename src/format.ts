@@ -258,6 +258,30 @@ export function formatError(e: unknown): string {
     const draft = demandId ? ` Taslak sözleşmenin kimliği: ${demandId}.` : '';
     return `Sözleşmedeki numaratör alanı için kullanılabilir bir numaratör yok (seçilmemiş, silinmiş ya da arşivlenmiş). Sözleşme gönderilmedi; kredi düşülmedi, davet gönderilmedi.${draft} Bu aracı aynı içerikle tekrar ÇAĞIRMAYIN, oluşturmada ikinci bir taslak açılır: numaratör alanına İmzala.org panelinden geçerli bir numaratör seçin, taslağı oradan gönderin.`;
   }
+  if (code === 'CONTRACT_NUMBER_SEQUENCE_COLLISION') {
+    // API 1.17.0: the sequence exists and is usable, but its next numbers
+    // collide with numbers already issued. Same outcome as the unavailable
+    // code (no credit, no invitation; create may leave a draft), different
+    // fix: the sequence's next value is moved forward in the panel. Retrying
+    // unchanged returns the same error.
+    const draft = demandId ? ` Taslak sözleşmenin kimliği: ${demandId}.` : '';
+    const next = demandId
+      ? 'Bu aracı tekrar ÇAĞIRMAYIN, ikinci bir taslak oluşur: numaratörün sıradaki numarası ileri alındıktan sonra taslağı panelden gönderin.'
+      : 'Numaratörün sıradaki numarası ileri alınmadan aynı isteği tekrar denemek aynı hatayı verir.';
+    return `Sözleşmedeki numaratörün sıradaki numaraları daha önce verilmiş numaralarla çakışıyor. Sözleşme gönderilmedi; kredi düşülmedi, davet gönderilmedi.${draft} İmzala.org panelinde numaratör ayarlarından sıradaki numarayı ileri alın (numaratörü yönetme yetkisi olan kişi yapar). ${next}`;
+  }
+  if (code === 'PARTY_PHONE_MISSING') {
+    // API 1.16.0: phone verification is on and at least one signer has no (or
+    // an invalid) phone number. Checked before credit and invitations. On
+    // create the contract IS created and demoted to a draft (data.id); on a
+    // bulk row or dispatch no new record is implied. party_ids are not echoed:
+    // no tool output shows party ids, so they would not help the caller.
+    const draft = demandId ? ` Taslak sözleşmenin kimliği: ${demandId}.` : '';
+    const next = demandId
+      ? 'Bu aracı tekrar ÇAĞIRMAYIN, ikinci bir taslak oluşur: eksik numarayı panelde taslağa ekleyip taslağı oradan gönderin.'
+      : 'Eksik numarayı tamamlamadan aynı isteği tekrar denemek aynı hatayı verir.';
+    return `Sözleşmede telefon doğrulaması açık, ancak en az bir imzacının telefon numarası yok ya da geçersiz; doğrulama kodu SMS ile gönderildiği için geçerli bir numara gerekir. Sözleşme gönderilmedi; kredi düşülmedi, davet gönderilmedi.${draft} Önce kullanıcıdan eksik telefon numarasını isteyin. ${next} Telefon doğrulamasını kapatmak yalnız kullanıcı bunu açıkça isterse yapılır.`;
+  }
   if (code === 'CREATE_FAILED') {
     // The contract says nothing about what survives on this code, so this
     // message claims NEITHER that a draft exists NOR that nothing was created.
@@ -421,6 +445,25 @@ function formatTerm(t: ContractTerm | null | undefined): string | null {
 }
 
 /**
+ * API 1.17.0 `contract_numbers`: the issued contract numbers as one line of
+ * text, or null when there are none. Tolerant read: the field is absent on older
+ * deployments, and any entry without a text `value` is skipped. The value is
+ * set by the workspace's own numbering sequence (prefix, counter, suffix), so it
+ * is rendered on one line and capped at the documented length.
+ */
+export function contractNumbersText(list: unknown): string | null {
+  if (!Array.isArray(list)) return null;
+  const values: string[] = [];
+  for (const entry of list) {
+    const raw = entry !== null && typeof entry === 'object' ? (entry as { value?: unknown }).value : undefined;
+    if (typeof raw !== 'string') continue;
+    const value = raw.replace(/\s+/g, ' ').trim().slice(0, 48);
+    if (value) values.push(value);
+  }
+  return values.length ? values.join(', ') : null;
+}
+
+/**
  * Formats a DemandStatusResult into a human-readable Turkish contract status summary.
  *
  * IMPORTANT: per-party signed state is derived from `signed_at != null`, NEVER
@@ -430,6 +473,8 @@ function formatTerm(t: ContractTerm | null | undefined): string | null {
 export function formatContractStatus(d: DemandStatusResult): string {
   const lines: string[] = [];
   lines.push(`Sözleşme: ${d.title}`);
+  const numbers = contractNumbersText(d.contract_numbers);
+  if (numbers) lines.push(`Sözleşme numarası: ${numbers}`);
   lines.push(`Durum: ${STATUS_TR[d.status] ?? d.status}`);
   if (d.archived_at) lines.push(`Arşiv: arşivlendi (${d.archived_at})`);
   const term = formatTerm(d.term);
@@ -676,7 +721,9 @@ export function formatDemandList(r: DemandListResult): string {
     const created = d.created_at ? `, oluşturma: ${d.created_at}` : '';
     const archived = d.archived_at ? ', arşivli' : '';
     const termEnd = d.term_end_date ? `, süre bitişi: ${d.term_end_date}` : '';
-    lines.push(`- ${title} [${d.id}]: ${status}, ${d.parties_signed}/${d.parties_total} taraf imzaladı${created}${termEnd}${archived}`);
+    const numbers = contractNumbersText(d.contract_numbers);
+    const number = numbers ? `, sözleşme numarası: ${numbers}` : '';
+    lines.push(`- ${title} [${d.id}]: ${status}, ${d.parties_signed}/${d.parties_total} taraf imzaladı${number}${created}${termEnd}${archived}`);
   }
   lines.push('');
   lines.push(`Toplam: ${r.total} (sayfa ${r.page}, sayfa boyutu ${r.limit})`);

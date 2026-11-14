@@ -5,11 +5,11 @@
 openapi: 3.1.0
 info:
   title: imzala External API
-  version: 1.15.1
+  version: 1.17.0
   description: |
     imzala.org dış API'si — şablondan sözleşme oluşturma ve takip.
 
-    **Sürüm:** 1.15.1 · **Son güncelleme:** 2026-11-06
+    **Sürüm:** 1.17.0 · **Son güncelleme:** 2026-11-11
 
     ## Auth
     Tüm istekler `X-API-Key` header'ı gerektirir. API key dashboard üzerinden
@@ -956,6 +956,12 @@ paths:
             Bu kapı yalnız anahtarsız çağrılarda çalışır: `Idempotency-Key`
             gönderen istemci zaten tekrar-korumalıdır.
 
+            `PARTY_PHONE_MISSING`: sözleşmede telefon doğrulaması açık,
+            ancak bir imzacının telefon numarası yok ya da numara geçersiz.
+            Kredi düşülmeden reddedilir, sözleşme taslağa düşer; gövdede
+            `party_ids` döner. Numaraları tamamlayıp tekrar gönderin ya da
+            telefon doğrulamasını kapatın.
+
             `PARTY_WITHOUT_DOCUMENTS`: eşlediğiniz bir tarafa imzalayacak
             belge düşmüyor. Üç biçimde görünebilir: (a) şablon düzeyinde
             ön-kontrol (rol hiçbir şablon belgesine atanmamış ve davet
@@ -1059,8 +1065,8 @@ paths:
           schema:
             type: string
           description: >-
-            Sözleşme kimliği, başlığı ve açıklamasında arama. Taraf ad, e-posta ve telefon
-            alanlarında ARAMAZ; taraf bilgisi bu uçtan dönmez.
+            Sözleşme kimliği, başlığı, açıklaması veya sözleşme numarasında (ör. `CODECK-2026-042`)
+            arama. Taraf ad, e-posta ve telefon alanlarında ARAMAZ; taraf bilgisi bu uçtan dönmez.
         - name: from
           in: query
           schema:
@@ -1160,6 +1166,15 @@ paths:
                                 COMPLETED ise imzalı PDF public URL'i. Açık rıza belgesi bu herkese
                                 açık bağlantıdan verilmez (zarfın ilk belgesi açık rıza belgesiyse
                                 404 döner); API anahtarıyla `GET /api/v1/demands/{id}/pdf` kullanın.
+                            contract_numbers:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/ContractNumber'
+                              description: |
+                                Sözleşmeye verilmiş sözleşme numaraları. Numara yoksa boş dizi.
+                              example:
+                                - sequence_id: 2f8b6a41-7c3d-4e95-a0b2-5d1e9c7f3a68
+                                  value: CODECK-2026-042
                       total:
                         type: integer
                       page:
@@ -1568,11 +1583,12 @@ paths:
                               description: >-
                                 status=failed ise makinece okunabilir kod (VALIDATION,
                                 INVALID_LOCALE, INVALID_PHONE_VERIFICATION,
-                                PHONE_REQUIRED_FOR_VERIFICATION, INSUFFICIENT_CREDITS,
-                                MEMBER_LIMIT_EXCEEDED, PARTY_WITHOUT_DOCUMENTS,
-                                INVALID_DOCUMENT_SELECTION, INVALID_DOCUMENT_VARIABLES,
-                                TEMPLATE_DOCUMENTS_NOT_READY, DOCUMENT_SOURCE_UNAVAILABLE,
-                                RECONCILE_FAILED, DISPATCH_PREPARATION_FAILED, CREATE_FAILED vb.)
+                                PHONE_REQUIRED_FOR_VERIFICATION, PARTY_PHONE_MISSING,
+                                INSUFFICIENT_CREDITS, MEMBER_LIMIT_EXCEEDED,
+                                PARTY_WITHOUT_DOCUMENTS, INVALID_DOCUMENT_SELECTION,
+                                INVALID_DOCUMENT_VARIABLES, TEMPLATE_DOCUMENTS_NOT_READY,
+                                DOCUMENT_SOURCE_UNAVAILABLE, RECONCILE_FAILED,
+                                DISPATCH_PREPARATION_FAILED, CREATE_FAILED vb.)
                             message:
                               type: string
                               description: status=failed ise açıklama
@@ -4210,6 +4226,12 @@ paths:
             gövdede atamasız taraf id'leri `party_ids` içinde döner.
             `PUT .../documents/{docId}/assignments` ile atamayı tamamlayıp
             tekrar deneyin.
+            `PARTY_PHONE_MISSING`: sözleşmede telefon doğrulaması açık,
+            ancak bir imzacının telefon numarası yok ya da numara geçersiz.
+            Kredi ve iddiadan ÖNCE, yan etkisiz kontrol edilir (kredi
+            dokunulmaz, statü değişmez, davet gitmez); gövdede `party_ids`
+            döner. Numaraları tamamlayıp tekrar deneyin ya da telefon
+            doğrulamasını kapatın.
             `DOCUMENT_COLLECTION_PARTY_REQUIRED`: imzadan önce zorunlu belge
             toplama açık, ancak belge istenecek hiçbir SIGNER seçilmemiş.
             En az bir imzacıda `collect_documents=true` seçip tekrar deneyin.
@@ -4798,6 +4820,7 @@ webhooks:
               data:
                 demand_id: 9d08ed88-1234-5678-90ab-cdef12345678
                 title: Vize Danışmanlığı - Ayşe Yılmaz
+                contract_numbers: []
       responses:
         '200':
           description: Webhook alındı (2xx döndürün; aksi halde retry tetiklenir)
@@ -4837,6 +4860,9 @@ webhooks:
                 demand_id: 9d08ed88-1234-5678-90ab-cdef12345678
                 title: Hizmet Sözleşmesi - Ayşe Yılmaz
                 dispatched_by: 3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b
+                contract_numbers:
+                  - sequence_id: 2f8b6a41-7c3d-4e95-a0b2-5d1e9c7f3a68
+                    value: CODECK-2026-042
       responses:
         '200':
           description: Webhook alındı
@@ -4881,6 +4907,9 @@ webhooks:
                     name: Mehmet Yılmaz
                     email: mehmet@example.com
                     signed_at: '2026-05-07T11:42:29.000Z'
+                contract_numbers:
+                  - sequence_id: 2f8b6a41-7c3d-4e95-a0b2-5d1e9c7f3a68
+                    value: CODECK-2026-042
       responses:
         '200':
           description: Webhook alındı
@@ -4924,6 +4953,9 @@ webhooks:
                     name: Veli Demir
                     email: veli@example.com
                     signed: false
+                contract_numbers:
+                  - sequence_id: 2f8b6a41-7c3d-4e95-a0b2-5d1e9c7f3a68
+                    value: CODECK-2026-042
       responses:
         '200':
           description: Webhook alındı
@@ -6930,6 +6962,9 @@ components:
             arşivlenmiş) bir numaratör alanı içeren sözleşme gönderilemez:
             oluşturma ve gönderim istekleri kredi düşülmeden 409
             `CONTRACT_NUMBER_SEQUENCE_UNAVAILABLE` döner.
+            Numaratörün sıradaki numaraları daha önce verilmiş numaralarla
+            çakışıyorsa `CONTRACT_NUMBER_SEQUENCE_COLLISION` döner; numaratörün
+            sıradaki değeri ileri alınmalıdır.
         position_x:
           type: number
           minimum: 0
@@ -7058,6 +7093,26 @@ components:
                     nullable: true
             items_count:
               type: integer
+    ContractNumber:
+      type: object
+      description: |
+        Sözleşmeye panelde tanımlı bir numaratörden verilen sözleşme numarası.
+        Numara sözleşme imzaya gönderilirken verilir ve sonradan değişmez.
+      required:
+        - sequence_id
+        - value
+      properties:
+        sequence_id:
+          type: string
+          format: uuid
+          description: Numarayı veren numaratörün kimliği.
+        value:
+          type: string
+          maxLength: 48
+          description: Biçimlendirilmiş sözleşme numarası (önek, sıra numarası ve sonek).
+      example:
+        sequence_id: 2f8b6a41-7c3d-4e95-a0b2-5d1e9c7f3a68
+        value: CODECK-2026-042
     DemandStatus:
       type: object
       properties:
@@ -7185,6 +7240,15 @@ components:
           type: string
           format: date-time
           nullable: true
+        contract_numbers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContractNumber'
+          description: |
+            Sözleşmeye verilmiş sözleşme numaraları. Numara yoksa boş dizi.
+          example:
+            - sequence_id: 2f8b6a41-7c3d-4e95-a0b2-5d1e9c7f3a68
+              value: CODECK-2026-042
     DemandDocumentStatus:
       type: object
       description: Zarftaki tek bir belgenin durumu.
@@ -7497,6 +7561,13 @@ components:
           format: uuid
         title:
           type: string
+        contract_numbers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContractNumber'
+          description: |
+            Sözleşmeye verilmiş sözleşme numaraları; numara yoksa boş dizi.
+            Numaralar okunamadığında bildirim bu alan olmadan gönderilir.
         _backfill:
           type: boolean
           description: |
@@ -7520,6 +7591,13 @@ components:
           format: uuid
           nullable: true
           description: Gönderimi yapan kullanıcının kimliği; belirlenemiyorsa `null`.
+        contract_numbers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContractNumber'
+          description: |
+            Sözleşmeye verilmiş sözleşme numaraları; numara yoksa boş dizi.
+            Numaralar okunamadığında bildirim bu alan olmadan gönderilir.
     WebhookDataDemandCompleted:
       type: object
       required:
@@ -7559,6 +7637,13 @@ components:
                 type: string
                 format: date-time
                 nullable: true
+        contract_numbers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContractNumber'
+          description: |
+            Sözleşmeye verilmiş sözleşme numaraları; numara yoksa boş dizi.
+            Numaralar okunamadığında bildirim bu alan olmadan gönderilir.
         _backfill:
           type: boolean
           description: Replay bayrağı (yan etkileri atla)
@@ -7594,6 +7679,13 @@ components:
               signed:
                 type: boolean
                 description: Süre dolduğunda imzalamış mıydı?
+        contract_numbers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContractNumber'
+          description: |
+            Sözleşmeye verilmiş sözleşme numaraları; numara yoksa boş dizi.
+            Numaralar okunamadığında bildirim bu alan olmadan gönderilir.
     WebhookDataPartySigned:
       type: object
       required:

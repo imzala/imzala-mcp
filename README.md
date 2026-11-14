@@ -228,7 +228,7 @@ Hesaptaki (veya kurum çalışma alanındaki) sözleşmeleri listeler. Yalnız �
 |------|-----|---------|----------|
 | `durum` | `string` | Hayir | `taslak`, `bekliyor`, `tamamlandi`, `iptal`, `suresi-doldu` |
 | `arsiv` | `string` | Hayir | `haric`, `yalniz`, `dahil`. Verilmezse arşivli sözleşmeler de listelenir (paneldeki listenin tersine) |
-| `arama` | `string` | Hayir | Sözleşme kimliği, başlığı ve açıklamasında arar. Taraf adı, e-posta ve telefonda aramaz |
+| `arama` | `string` | Hayir | Sözleşme kimliği, başlığı, açıklaması veya sözleşme numarasında arar. Taraf adı, e-posta ve telefonda aramaz |
 | `baslangic_tarih`, `bitis_tarih` | `string` | Hayir | Oluşturma tarihi aralığı (YYYY-AA-GG) |
 | `sayfa`, `limit` | `number` | Hayir | Sayfalama (varsayılan 20, en az 10, en fazla 100) |
 
@@ -411,6 +411,15 @@ Bu not hukuki danışmanlık değildir; belirli bir amaç için kullanmadan önc
 ---
 
 ## Sürüm notları
+
+### 1.17.0
+
+- İmzala API 1.17.0 ile uyumlu (1.16.0 değişiklikleri dahil).
+- `sozlesme_durumu` ve `sozlesmelerim` çıktısında, sözleşmeye numaratörden verilmiş sözleşme numarası varsa görünür. `sozlesmelerim` aramasında sözleşme numarası da aranır.
+- Telefon doğrulaması açık ve bir imzacının telefon numarası eksik ya da geçersizse dönen `PARTY_PHONE_MISSING` hatası anlaşılır bir mesajla gösterilir: sözleşme gönderilmez, kredi düşülmez; oluşturmada sözleşme taslak olarak kalır ve taslak kimliği verilir.
+- Numaratörün sıradaki numaraları daha önce verilmiş numaralarla çakıştığında dönen `CONTRACT_NUMBER_SEQUENCE_COLLISION` hatası, numaratörün sıradaki numarasının panelden ileri alınması gerektiğini söyleyen bir mesajla gösterilir.
+
+Önceki sürümlerle uyumludur; araç girdileri değişmedi.
 
 ### 1.15.1
 

@@ -23,7 +23,7 @@ export const sozlesmelerimInputSchema = {
     .enum(['taslak', 'bekliyor', 'tamamlandi', 'iptal', 'suresi-doldu'])
     .optional()
     .describe('Duruma göre filtrele: taslak (oluşturuldu ama taraflara gönderilmedi) / bekliyor / tamamlandi / iptal / suresi-doldu'),
-  arama: z.string().optional().describe('Sözleşme kimliği, başlığı ve açıklamasında serbest metin araması. Taraf adı, e-posta ve telefonda ARAMAZ.'),
+  arama: z.string().optional().describe('Sözleşme kimliği, başlığı, açıklaması veya sözleşme numarasında (ör. ABC-2026-042) serbest metin araması. Taraf adı, e-posta ve telefonda ARAMAZ.'),
   arsiv: z
     .enum(['haric', 'yalniz', 'dahil'])
     .optional()
@@ -47,7 +47,7 @@ export function registerSozlesmelerim(server: McpServer, resolveClient: ResolveC
     'sozlesmelerim',
     {
       description:
-        'İmzala hesabındaki (veya organizasyon çalışma alanındaki) sözleşmeleri listeler. Duruma (taslak/bekliyor/tamamlandi/iptal/suresi-doldu), arşiv durumuna, başlığa ve TARİH ARALIĞINA (baslangic_tarih / bitis_tarih) göre filtrelenebilir, sayfalanır. "Son 30 gün", "bu ay" gibi tarih sorularında baslangic_tarih/bitis_tarih alanlarını kullanın. durum belirtmezsen TÜM durumlar birlikte döner; her durum için aracı ayrı ayrı çağırma (tek çağrı yeterli). Yalnızca özet döner (başlık, durum, imzalayan taraf sayısı); taraf isimleri ve e-postaları bu listede yer almaz (veri minimizasyonu), ayrıntı için sozlesme_durumu aracını kimlik ile çağırın.',
+        'İmzala hesabındaki (veya organizasyon çalışma alanındaki) sözleşmeleri listeler. Duruma (taslak/bekliyor/tamamlandi/iptal/suresi-doldu), arşiv durumuna, başlığa ve TARİH ARALIĞINA (baslangic_tarih / bitis_tarih) göre filtrelenebilir, sayfalanır. "Son 30 gün", "bu ay" gibi tarih sorularında baslangic_tarih/bitis_tarih alanlarını kullanın. durum belirtmezsen TÜM durumlar birlikte döner; her durum için aracı ayrı ayrı çağırma (tek çağrı yeterli). Yalnızca özet döner (başlık, durum, imzalayan taraf sayısı, varsa sözleşme numarası); taraf isimleri ve e-postaları bu listede yer almaz (veri minimizasyonu), ayrıntı için sozlesme_durumu aracını kimlik ile çağırın.',
       inputSchema: sozlesmelerimInputSchema,
     },
     async (args) => {
