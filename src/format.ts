@@ -278,9 +278,9 @@ export function formatError(e: unknown): string {
     // no tool output shows party ids, so they would not help the caller.
     const draft = demandId ? ` Taslak sözleşmenin kimliği: ${demandId}.` : '';
     const next = demandId
-      ? 'Bu aracı tekrar ÇAĞIRMAYIN, ikinci bir taslak oluşur: eksik numarayı panelde taslağa ekleyip taslağı oradan gönderin.'
+      ? 'Bu aracı tekrar ÇAĞIRMAYIN, ikinci bir taslak oluşur: numara eklendikten sonra taslak panelden gönderilir.'
       : 'Eksik numarayı tamamlamadan aynı isteği tekrar denemek aynı hatayı verir.';
-    return `Sözleşmede telefon doğrulaması açık, ancak en az bir imzacının telefon numarası yok ya da geçersiz; doğrulama kodu SMS ile gönderildiği için geçerli bir numara gerekir. Sözleşme gönderilmedi; kredi düşülmedi, davet gönderilmedi.${draft} Önce kullanıcıdan eksik telefon numarasını isteyin. ${next} Telefon doğrulamasını kapatmak yalnız kullanıcı bunu açıkça isterse yapılır.`;
+    return `Sözleşmede telefon doğrulaması açık, ancak en az bir imzacının telefon numarası yok ya da geçersiz; doğrulama kodu SMS ile gönderildiği için geçerli bir numara gerekir. Sözleşme gönderilmedi; kredi düşülmedi, davet gönderilmedi.${draft} Kullanıcıya eksik telefon numarasını panelden taslağa eklemesini söyleyin. ${next} Telefon doğrulamasını kapatmak yalnız kullanıcı bunu açıkça isterse yapılır.`;
   }
   if (code === 'CREATE_FAILED') {
     // The contract says nothing about what survives on this code, so this

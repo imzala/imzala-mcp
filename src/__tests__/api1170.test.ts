@@ -22,6 +22,8 @@ describe('PARTY_PHONE_MISSING (1.16.0)', () => {
     expect(msg).toMatch(/kredi düşülmedi, davet gönderilmedi/);
     expect(msg).toMatch(/tekrar ÇAĞIRMAYIN/);
     expect(msg).toMatch(/yalnız kullanıcı bunu açıkça isterse/);
+    expect(msg).toMatch(/panelden taslağa eklemesini söyleyin/);
+    expect(msg).not.toMatch(/kullanıcıdan eksik telefon numarasını isteyin/);
     expect(msg).toContain(DRAFT_ID);
     expect(msg).not.toContain(PARTY_ID);
     expect(msg).not.toMatch(/iç ayrıntı/);
