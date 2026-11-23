@@ -1,6 +1,6 @@
 {
-  "specVersion": "1.17.0",
-  "specSha256": "32e22bf3f05989a8638b68b299a27e6277068edd0234ee9fde0e9c2f8fb629f2",
+  "specVersion": "1.17.3",
+  "specSha256": "20f2032efd681da5b2b8fd9aee5935e04232e76cf088fc458e37db17187b45f8",
   "operations": {
     "GET /api/v1/templates": {
       "tool": "sablonlarim"

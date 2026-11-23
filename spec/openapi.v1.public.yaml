@@ -5,11 +5,11 @@
 openapi: 3.1.0
 info:
   title: imzala External API
-  version: 1.17.0
+  version: 1.17.3
   description: |
     imzala.org dış API'si — şablondan sözleşme oluşturma ve takip.
 
-    **Sürüm:** 1.17.0 · **Son güncelleme:** 2026-11-11
+    **Sürüm:** 1.17.3 · **Son güncelleme:** 2026-11-23
 
     ## Auth
     Tüm istekler `X-API-Key` header'ı gerektirir. API key dashboard üzerinden
@@ -2508,7 +2508,7 @@ paths:
 
         ### Sınırlar
 
-        Yalnızca PDF (sihirli bayt doğrulaması), tek dosya, en fazla 20 MB.
+        Yalnızca PDF (sihirli bayt doğrulaması), tek dosya, en fazla 90 MB.
         Bu uç kredi tüketmediği için kullanıcı başına dakikada 5 istekle
         sınırlıdır (aşımda 429 `RATE_LIMITED`).
       parameters:
@@ -3771,11 +3771,16 @@ paths:
             `DEMAND_NOT_EDITABLE` / `SIGNING_ALREADY_STARTED` /
             `ENVELOPE_ALREADY_DISPATCHED`: bkz. yukarıdaki uç.
         '413':
-          description: '`FILE_TOO_LARGE` — 20 MB sınırı.'
+          description: '`FILE_TOO_LARGE` — 90 MB sınırı.'
         '415':
           description: Desteklenmeyen dosya türü.
         '422':
           description: '`IMAGE_DECODE_FAILED` — görsel çözümlenemedi.'
+        '429':
+          description: |
+            `TOO_MANY_REQUESTS` — API anahtarı başına dakikada 30 istek sınırı
+            aşıldı (`/demands/upload` sınırından ayrı sayılır). Gövdede
+            `retry_after_seconds` döner.
   /api/v1/demands/{demandId}/documents/order:
     put:
       tags:
@@ -5591,6 +5596,17 @@ components:
             Gönderen: `sender.full_name`, `sender.email`, `sender.company_name`
 
             Tarih: `current.date`, `current.datetime`
+
+            **Hesaplanan alan:** `{{days_between:<baslangic_slug>:<bitis_slug>:calendar|business}}`
+            aynı belgedeki iki tarih alanı arasındaki gün sayısını yazar. İki uç
+            gün dahildir (aynı gün = 1). `business` cumartesi ve pazarı saymaz;
+            resmî tatiller dikkate alınmaz. Tarihlerden biri boşsa ya da bitiş
+            başlangıçtan önceyse alan boş kalır. `variables` ile gönderilen
+            değer kullanılmaz. Şablonda alan "Elle değiştirilebilir" olarak
+            işaretlendiyse (`editable: true`), gönderen panelde ya da alanın
+            sahibi imzacı imza sayfasında hesaplanan değeri elle değiştirebilir
+            (sıfır ya da pozitif gün sayısı, ör. `1,5`); boş bırakılırsa değer
+            yeniden tarihlerden hesaplanır.
 
             **Precedence — TC alanı ve diğer slug çakışmaları:**
             Eğer `party_mapping[i].government_id` ile
