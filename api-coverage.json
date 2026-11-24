@@ -1,6 +1,6 @@
 {
-  "specVersion": "1.17.3",
-  "specSha256": "20f2032efd681da5b2b8fd9aee5935e04232e76cf088fc458e37db17187b45f8",
+  "specVersion": "1.18.3",
+  "specSha256": "f70a200750a4e7654014d96f1a9a754402ea0b422cc53605a769b33c59c1945d",
   "operations": {
     "GET /api/v1/templates": {
       "tool": "sablonlarim"
@@ -127,6 +127,9 @@
     },
     "POST /api/v1/contacts": {
       "tool": "kisi_ekle"
+    },
+    "PATCH /api/v1/demands/{id}/external-ref": {
+      "excluded": "Bu sürümde araç olarak sunulmaz; takip numarası aracı feat/demand-external-ref dalında hazırlanıyor."
     }
   }
 }
