@@ -164,7 +164,7 @@ async function main() {
 
     // --- zaman_damgalarim (new READ tool — RFC3161 timestamp list) ---
     const timestampsList = await client.callTool({ name: 'zaman_damgalarim', arguments: {} });
-    if (isErr(timestampsList) || !/Toplam:|Hiç zaman damgası bulunamadı/.test(textOf(timestampsList))) {
+    if (isErr(timestampsList) || !/Toplam:|Hiç (zaman damgası|Eser Tasdik kaydı) bulunamadı/.test(textOf(timestampsList))) {
       fail(`zaman_damgalarim failed: ${textOf(timestampsList).slice(0, 160)}`);
     }
     ok('zaman_damgalarim — timestamp list returned');
