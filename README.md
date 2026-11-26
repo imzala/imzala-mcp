@@ -412,6 +412,14 @@ Bu not hukuki danışmanlık değildir; belirli bir amaç için kullanmadan önc
 
 ## Sürüm notları
 
+### 1.17.5
+
+- İmzala API 1.17.5 ile uyumlu (1.17.1 ile 1.17.4 arası değişiklikler dahil).
+- `sozlesme_audit` çıktısında belge toplama olayları (belge kontrolü, belge yüklendi, belge kabul edildi, belge kabul edilmedi, belge kararı bildirimi) Türkçe gösterilir.
+- `sablon_detay` çıktısında iki tarih arası gün sayısını yazan hesaplanan alan işaretlenir: değer tarihlerden hesaplanır, `variables` ile gönderilen değer kullanılmaz.
+
+Önceki sürümlerle uyumludur; araç girdileri değişmedi.
+
 ### 1.17.0
 
 - İmzala API 1.17.0 ile uyumlu (1.16.0 değişiklikleri dahil).

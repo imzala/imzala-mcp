@@ -589,10 +589,15 @@ export function formatTemplateDetail(t: TemplateDetailResult): string {
     for (const v of t.variables) {
       const req = v.is_required ? ', zorunlu' : '';
       const def = v.default_source ? `, otomatik kaynak: ${v.default_source}` : '';
+      // API 1.17.1/1.17.2: hesaplanan gün alanı (`days_between:...`) tarihlerden
+      // hesaplanır; `variables` ile gönderilen değer kullanılmaz.
+      const computed = v.default_source?.startsWith('days_between:')
+        ? ', hesaplanan alan: değer iki tarih alanından otomatik hesaplanır, variables ile gönderilen değer kullanılmaz'
+        : '';
       const stamp = v.item_type === 'stamp'
         ? ', gönderenin kaşesi: düz metin firma adı olarak yazılır (en çok 500 karakter; vergi dairesi, vergi no ve adres panelden)'
         : '';
-      lines.push(`- ${v.slug} (${v.label}), tip: ${v.item_type}${req}${def}${stamp}`);
+      lines.push(`- ${v.slug} (${v.label}), tip: ${v.item_type}${req}${def}${computed}${stamp}`);
     }
   }
   return lines.join('\n');
@@ -845,6 +850,12 @@ const AUDIT_EVENT_TR: Record<string, string> = {
   'demand.cancelled': 'Sözleşme iptal edildi',
   'party.rejected': 'Taraf reddetti',
   REAPPROVAL_REQUIRED: 'Sözleşme değişti, onaylayanların yeniden onayı gerekiyor',
+  // API 1.17.5: belge toplama olayları.
+  DOCUMENT_REVIEW: 'Belge kontrolü (belge açıldı, karar verildi ya da kontrolcü ayarı değişti)',
+  DOCUMENT_UPLOADED: 'Taraf istenen belgeyi yükledi',
+  DOCUMENT_APPROVED: 'Yüklenen belge kabul edildi',
+  DOCUMENT_REJECTED: 'Yüklenen belge kabul edilmedi',
+  DOCUMENT_NOTICE_SENT: 'Belge kararı bildirimi tarafa gönderildi (sağlayıcıya iletildi, teslim bilgisi değildir)',
 };
 
 /**

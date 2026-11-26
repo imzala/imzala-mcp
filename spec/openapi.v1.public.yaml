@@ -5,11 +5,11 @@
 openapi: 3.1.0
 info:
   title: imzala External API
-  version: 1.17.0
+  version: 1.17.5
   description: |
     imzala.org dış API'si — şablondan sözleşme oluşturma ve takip.
 
-    **Sürüm:** 1.17.0 · **Son güncelleme:** 2026-11-11
+    **Sürüm:** 1.17.5 · **Son güncelleme:** 2026-11-26
 
     ## Auth
     Tüm istekler `X-API-Key` header'ı gerektirir. API key dashboard üzerinden
@@ -2330,7 +2330,8 @@ paths:
             `TOO_MANY_REQUESTS` — API anahtarı başına dakikada 30 istek sınırı
             aşıldı. Bu uç yükleme + PDF ayrıştırma yapar ve `send_invitations`
             ile gerçek SMS/e-posta tetikleyebilir; sınır kötüye kullanımın
-            hızını kırmak içindir.
+            hızını kırmak içindir. Aynı hesapla eşzamanlı yükleme sınırı
+            aşıldığında da bu kod döner (`Retry-After` başlığıyla).
         '500':
           description: |
             `RECONCILE_FAILED`: kredi mutabakatı beklenmedik (kredi-dışı) bir
@@ -2363,6 +2364,16 @@ paths:
                   demand_id:
                     type: string
                     format: uuid
+        '503':
+          description: |
+            `RENDER_BUSY`: sayfa görselleri hazırlanırken sunucu şu an yoğun;
+            istek işlenmeden reddedildi, sözleşme veya belge oluşturulmadı ve
+            kredi düşülmedi. `Retry-After` başlığındaki süre (saniye) sonra
+            aynı isteği tekrarlayın.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/v1/field-templates:
     get:
       tags:
@@ -2508,7 +2519,7 @@ paths:
 
         ### Sınırlar
 
-        Yalnızca PDF (sihirli bayt doğrulaması), tek dosya, en fazla 20 MB.
+        Yalnızca PDF (sihirli bayt doğrulaması), tek dosya, en fazla 90 MB.
         Bu uç kredi tüketmediği için kullanıcı başına dakikada 5 istekle
         sınırlıdır (aşımda 429 `RATE_LIMITED`).
       parameters:
@@ -2577,7 +2588,10 @@ paths:
             Belge okunamadı: parola korumalı PDF (`ENCRYPTED_PDF`) veya metin
             çıkarma süre bütçesi aşıldı (`TEXT_EXTRACTION_TIMEOUT`).
         '429':
-          description: Dakikalık önizleme sınırı aşıldı (`RATE_LIMITED`)
+          description: |
+            Dakikalık önizleme sınırı aşıldı (`RATE_LIMITED`) veya aynı hesapla
+            eşzamanlı yükleme sınırı aşıldı (`TOO_MANY_REQUESTS`, `Retry-After`
+            başlığıyla).
         '503':
           description: Sınırlayıcı geçici olarak kullanılamıyor (`RATE_LIMITER_UNAVAILABLE`)
   /api/v1/demands/{id}/items:
@@ -3203,7 +3217,15 @@ paths:
         olayın `ip_masked` ve `device_label` alanları telefona aittir),
         `REAPPROVAL_REQUIRED` (gönderen açık bir değişiklik talebi sırasında
         sözleşme içeriğini güncelledi, önceki onaylar sıfırlandı ve
-        onaylayanların yeniden onay vermesi gerekiyor).
+        onaylayanların yeniden onay vermesi gerekiyor), `DOCUMENT_REVIEW`
+        (belge kontrolcüsü taraf, diğer bir tarafın yüklediği belgeyi açtı ya da
+        kabul/ret kararı verdi; ya da gönderen bir tarafın belge kontrolcüsü
+        ayarını açtı veya kapattı), `DOCUMENT_UPLOADED` (taraf istenen bir
+        belgeyi yükledi), `DOCUMENT_APPROVED` (tarafın yüklediği belge kabul
+        edildi), `DOCUMENT_REJECTED` (tarafın yüklediği belge kabul edilmedi),
+        `DOCUMENT_NOTICE_SENT` (belge kararı bildirimi tarafa SMS ya da e-posta
+        ile gönderildi; gönderim, sağlayıcıya iletildiğini gösterir, teslim
+        edildiğini göstermez).
         Liste ileride genişleyebilir; tanımadığınız değeri yok saymanız önerilir.
       parameters:
         - name: id
@@ -3771,11 +3793,27 @@ paths:
             `DEMAND_NOT_EDITABLE` / `SIGNING_ALREADY_STARTED` /
             `ENVELOPE_ALREADY_DISPATCHED`: bkz. yukarıdaki uç.
         '413':
-          description: '`FILE_TOO_LARGE` — 20 MB sınırı.'
+          description: '`FILE_TOO_LARGE` — 90 MB sınırı.'
         '415':
           description: Desteklenmeyen dosya türü.
         '422':
           description: '`IMAGE_DECODE_FAILED` — görsel çözümlenemedi.'
+        '429':
+          description: |
+            `TOO_MANY_REQUESTS` — API anahtarı başına dakikada 30 istek sınırı
+            aşıldı (`/demands/upload` sınırından ayrı sayılır). Gövdede
+            `retry_after_seconds` döner. Aynı hesapla eşzamanlı yükleme sınırı
+            aşıldığında da bu kod döner (`Retry-After` başlığıyla).
+        '503':
+          description: |
+            `RENDER_BUSY`: sayfa görselleri hazırlanırken sunucu şu an yoğun;
+            istek işlenmeden reddedildi, sözleşme veya belge oluşturulmadı ve
+            kredi düşülmedi. `Retry-After` başlığındaki süre (saniye) sonra
+            aynı isteği tekrarlayın.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/v1/demands/{demandId}/documents/order:
     put:
       tags:
@@ -5591,6 +5629,17 @@ components:
             Gönderen: `sender.full_name`, `sender.email`, `sender.company_name`
 
             Tarih: `current.date`, `current.datetime`
+
+            **Hesaplanan alan:** `{{days_between:<baslangic_slug>:<bitis_slug>:calendar|business}}`
+            aynı belgedeki iki tarih alanı arasındaki gün sayısını yazar. İki uç
+            gün dahildir (aynı gün = 1). `business` cumartesi ve pazarı saymaz;
+            resmî tatiller dikkate alınmaz. Tarihlerden biri boşsa ya da bitiş
+            başlangıçtan önceyse alan boş kalır. `variables` ile gönderilen
+            değer kullanılmaz. Şablonda alan "Elle değiştirilebilir" olarak
+            işaretlendiyse (`editable: true`), gönderen panelde ya da alanın
+            sahibi imzacı imza sayfasında hesaplanan değeri elle değiştirebilir
+            (sıfır ya da pozitif gün sayısı, ör. `1,5`); boş bırakılırsa değer
+            yeniden tarihlerden hesaplanır.
 
             **Precedence — TC alanı ve diğer slug çakışmaları:**
             Eğer `party_mapping[i].government_id` ile
