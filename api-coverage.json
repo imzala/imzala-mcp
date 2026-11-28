@@ -1,6 +1,6 @@
 {
-  "specVersion": "1.17.5",
-  "specSha256": "18417e9823784f1c097b0ac54cf1d0a469f1b312dfe27752ca462abbb1edcbff",
+  "specVersion": "1.18.0",
+  "specSha256": "8ea3c62cb5d7d5c14d4068911e9d88df68885fa78b0e5ef86ca5526e3669e595",
   "operations": {
     "GET /api/v1/templates": {
       "tool": "sablonlarim"
@@ -25,6 +25,9 @@
     },
     "POST /api/v1/demands/bulk": {
       "tool": "toplu_sozlesme_gonder"
+    },
+    "PATCH /api/v1/demands/{id}/external-ref": {
+      "tool": "sozlesme_takip_no_guncelle"
     },
     "GET /api/v1/demands/{id}": {
       "tool": "sozlesme_durumu"

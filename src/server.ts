@@ -19,6 +19,7 @@ import { registerSozlesmeAudit } from './tools/sozlesmeAudit.js';
 import { registerSozlesmeSertifikasi } from './tools/sozlesmeSertifikasi.js';
 import { registerRaporlar } from './tools/raporlar.js';
 import { registerTopluSozlesmeGonder } from './tools/topluSozlesmeGonder.js';
+import { registerSozlesmeTakipNoGuncelle } from './tools/sozlesmeTakipNoGuncelle.js';
 
 export interface CreateServerOpts {
   /** Called on every tool invocation to obtain the current auth context. Must be cheap (reads env / header). */
@@ -84,6 +85,7 @@ export function createServer(opts: CreateServerOpts): McpServer {
   registerSozlesmeSertifikasi(server, resolveClient);
   registerRaporlar(server, resolveClient);
   registerTopluSozlesmeGonder(server, resolveClient);
+  registerSozlesmeTakipNoGuncelle(server, resolveClient);
 
   return server;
 }

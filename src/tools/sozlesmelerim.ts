@@ -23,7 +23,7 @@ export const sozlesmelerimInputSchema = {
     .enum(['taslak', 'bekliyor', 'tamamlandi', 'iptal', 'suresi-doldu'])
     .optional()
     .describe('Duruma göre filtrele: taslak (oluşturuldu ama taraflara gönderilmedi) / bekliyor / tamamlandi / iptal / suresi-doldu'),
-  arama: z.string().optional().describe('Sözleşme kimliği, başlığı, açıklaması veya sözleşme numarasında (ör. ABC-2026-042) serbest metin araması. Taraf adı, e-posta ve telefonda ARAMAZ.'),
+  arama: z.string().optional().describe('Sözleşme kimliği, başlığı, açıklaması veya sözleşme numarasında (ör. ABC-2026-042) ya da takip numarasında (parça eşleşme) serbest metin araması. Taraf adı, e-posta ve telefonda ARAMAZ.'),
   arsiv: z
     .enum(['haric', 'yalniz', 'dahil'])
     .optional()
@@ -38,6 +38,7 @@ export const sozlesmelerimInputSchema = {
     .string()
     .optional()
     .describe('Bu tarihe kadar oluşturulan sözleşmeler (dahil). ISO tarih biçimi YYYY-MM-DD (ör. 2026-06-30).'),
+  external_ref: z.string().max(255).optional().describe('Takip numarasına (external_ref) göre tam eşleşme filtresi, büyük/küçük harf duyarlı. Parça arama için arama alanını kullanın. Aynı değer birden çok sözleşmede olabilir.'),
   sayfa: z.number().int().positive().optional().describe('Sayfa numarası (varsayılan 1)'),
   limit: z.number().int().positive().max(100).optional().describe('Sayfa boyutu (varsayılan 20, en az 10, en fazla 100)'),
 };
@@ -47,7 +48,7 @@ export function registerSozlesmelerim(server: McpServer, resolveClient: ResolveC
     'sozlesmelerim',
     {
       description:
-        'İmzala hesabındaki (veya organizasyon çalışma alanındaki) sözleşmeleri listeler. Duruma (taslak/bekliyor/tamamlandi/iptal/suresi-doldu), arşiv durumuna, başlığa ve TARİH ARALIĞINA (baslangic_tarih / bitis_tarih) göre filtrelenebilir, sayfalanır. "Son 30 gün", "bu ay" gibi tarih sorularında baslangic_tarih/bitis_tarih alanlarını kullanın. durum belirtmezsen TÜM durumlar birlikte döner; her durum için aracı ayrı ayrı çağırma (tek çağrı yeterli). Yalnızca özet döner (başlık, durum, imzalayan taraf sayısı, varsa sözleşme numarası); taraf isimleri ve e-postaları bu listede yer almaz (veri minimizasyonu), ayrıntı için sozlesme_durumu aracını kimlik ile çağırın.',
+        'İmzala hesabındaki (veya organizasyon çalışma alanındaki) sözleşmeleri listeler. Duruma (taslak/bekliyor/tamamlandi/iptal/suresi-doldu), arşiv durumuna, başlığa ve TARİH ARALIĞINA (baslangic_tarih / bitis_tarih) göre filtrelenebilir, sayfalanır. "Son 30 gün", "bu ay" gibi tarih sorularında baslangic_tarih/bitis_tarih alanlarını kullanın. durum belirtmezsen TÜM durumlar birlikte döner; her durum için aracı ayrı ayrı çağırma (tek çağrı yeterli). Yalnızca özet döner (başlık, durum, imzalayan taraf sayısı, varsa sözleşme numarası ve takip numarası); `external_ref` ile takip numarasına göre tam eşleşme yapılabilir; taraf isimleri ve e-postaları bu listede yer almaz (veri minimizasyonu), ayrıntı için sozlesme_durumu aracını kimlik ile çağırın.',
       inputSchema: sozlesmelerimInputSchema,
     },
     async (args) => {
@@ -61,6 +62,7 @@ export function registerSozlesmelerim(server: McpServer, resolveClient: ResolveC
           q: args.arama,
           from: args.baslangic_tarih,
           to: args.bitis_tarih,
+          externalRef: args.external_ref,
           archived: args.arsiv ? ARSIV_TO_ARCHIVED[args.arsiv] : undefined,
           page: args.sayfa,
           limit: args.limit === undefined ? undefined : Math.max(API_MIN_LIMIT, args.limit),

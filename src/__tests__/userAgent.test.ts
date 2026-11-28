@@ -30,6 +30,7 @@ const CALLS: Array<[string, (c: ReturnType<typeof makeClient>) => Promise<unknow
   ['listTimestamps', (c) => c.listTimestamps()],
   ['getDemandTimeline', (c) => c.getDemandTimeline('d1')],
   ['bulkCreateDemands', (c) => c.bulkCreateDemands({ template_id: 't1', rows: [] })],
+  ['updateDemandExternalRef', (c) => c.updateDemandExternalRef('d1', 'SIP-2026-00042')],
 ];
 
 test('CALLS listesi client yüzeyinin tamamını kapsıyor (yeni metot → buraya da ekle)', () => {

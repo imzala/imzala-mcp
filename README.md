@@ -1,6 +1,6 @@
 # @imzala/mcp-server
 
-**İmzala MCP sunucusu:** yapay zekâ asistanınızın (Claude, Cursor vb.) İmzala hesabınıza erişmesini sağlar. API anahtarıyla kimlik doğrulaması yapılır ve on sekiz araç sunar.
+**İmzala MCP sunucusu:** yapay zekâ asistanınızın (Claude, Cursor vb.) İmzala hesabınıza erişmesini sağlar. API anahtarıyla kimlik doğrulaması yapılır ve on dokuz araç sunar.
 
 | Araç | Ne yapar | Kapsam |
 |------|----------|--------|
@@ -21,9 +21,10 @@
 | `hatirlatma_gonder` | İmzalamamış taraflara gerçek SMS ve e-posta hatırlatması | `demands:write` |
 | `sozlesme_iptal` | Bekleyen sözleşmeyi iptal eder (geri alınamaz) | `demands:write` |
 | `sozlesme_sil` | Tamamlanmamış sözleşmeyi kalıcı olarak siler (geri alınamaz) | `demands:write` |
+| `sozlesme_takip_no_guncelle` | Sözleşmenin takip numarasını (`external_ref`) değiştirir ya da temizler | `demands:write` |
 | `kisi_ekle` | Rehbere kişi ekler | `contacts:write` |
 
-> **Önemli:** `sablondan_sozlesme_olustur`, `toplu_sozlesme_gonder`, `sozlesme_iptal`, `sozlesme_sil`, `kisi_ekle` ve `hatirlatma_gonder` **yazma (write)** araçlarıdır: sözleşme oluşturur, iptal eder ya da siler, kişi kaydeder veya gerçek SMS/e-posta gönderir. Bunlar API anahtarınızda ilgili yazma kapsamını ister (sözleşme araçları `demands:write`, `kisi_ekle` `contacts:write`); **salt-okunur** bir anahtarla çalışmazlar. `sozlesme_iptal` İmzala.org üzerindeki imza sürecinin iptalidir (platform işlemi); hukuki fesih değildir, taraflar arasındaki hukuki ilişkiyi kendiliğinden sona erdirmez ve **geri alınamaz**. Bkz. "API Anahtarı Nasıl Alınır" ve ilgili araç bölümleri.
+> **Önemli:** `sablondan_sozlesme_olustur`, `toplu_sozlesme_gonder`, `sozlesme_iptal`, `sozlesme_sil`, `sozlesme_takip_no_guncelle`, `kisi_ekle` ve `hatirlatma_gonder` **yazma (write)** araçlarıdır: sözleşme oluşturur, iptal eder ya da siler, kişi kaydeder veya gerçek SMS/e-posta gönderir. Bunlar API anahtarınızda ilgili yazma kapsamını ister (sözleşme araçları `demands:write`, `kisi_ekle` `contacts:write`); **salt-okunur** bir anahtarla çalışmazlar. `sozlesme_iptal` İmzala.org üzerindeki imza sürecinin iptalidir (platform işlemi); hukuki fesih değildir, taraflar arasındaki hukuki ilişkiyi kendiliğinden sona erdirmez ve **geri alınamaz**. Bkz. "API Anahtarı Nasıl Alınır" ve ilgili araç bölümleri.
 
 > **Not:** Bu paket varsayılan olarak İmzala üretim ortamına (`https://api-prd.imzala.org`) bağlanır. Farklı bir uç nokta için `IMZALA_API_BASE_URL` değişkenini ayarlayın.
 
@@ -97,7 +98,7 @@
 3. **API Anahtarlari** sekmesini acin ve **Yeni Anahtar** butonuna tiklayin.
 4. Kapsam seçiminde, hangi araçları kullanacağınıza göre en dar kombinasyonu işaretleyin. Okuma araçları (`whoami`, `sozlesmelerim`, `sozlesme_durumu`, `sozlesme_audit`, `imzali_pdf_indir`, `sozlesme_sertifikasi`, `raporlar`, `sablonlarim`, `sablon_detay`, `kisilerim`, `zaman_damgalarim`) sözleşme oluşturmaz ya da değiştirmez. Bunlar için: sözleşme araçlarına `demands:read`, şablon araçlarına `templates:read`, `kisilerim` için `contacts:read`, `zaman_damgalarim` için `timestamps`. Paneldeki **"Yapay zekâ asistanı için salt-okunur (önerilen)"** hazır seçeneği okuma kapsamlarını tek tıkla seçer.
    `timestamps` kapsamı `eser_tescil` aracını da açar; bu araç kredi harcar ve kayıt oluşturur. Bunu istemiyorsanız `timestamps` kapsamını vermeyin.
-   Yazma kapsamı **yalnızca** yazma araçlarını kullanacaksanız gerekir: `sablondan_sozlesme_olustur`, `toplu_sozlesme_gonder`, `hatirlatma_gonder`, `sozlesme_iptal` ve `sozlesme_sil` için `demands:write`; `kisi_ekle` için `contacts:write`. Yazma araçlarını kullanmayacaksanız yazma kapsamı VERMEYİN. Kullanacaksanız **ayrı bir anahtar** oluşturup yalnız ona gereken yazma kapsamını verin; salt-okunur ana anahtarınızı genişletmeyin. (Eski, ayrımsız `demands` / `templates` / `contacts` kapsamlı anahtarlar da çalışır ama yazma yetkisi de içerdiğinden önerilmez.)
+   Yazma kapsamı **yalnızca** yazma araçlarını kullanacaksanız gerekir: `sablondan_sozlesme_olustur`, `toplu_sozlesme_gonder`, `hatirlatma_gonder`, `sozlesme_iptal`, `sozlesme_sil` ve `sozlesme_takip_no_guncelle` için `demands:write`; `kisi_ekle` için `contacts:write`. Yazma araçlarını kullanmayacaksanız yazma kapsamı VERMEYİN. Kullanacaksanız **ayrı bir anahtar** oluşturup yalnız ona gereken yazma kapsamını verin; salt-okunur ana anahtarınızı genişletmeyin. (Eski, ayrımsız `demands` / `templates` / `contacts` kapsamlı anahtarlar da çalışır ama yazma yetkisi de içerdiğinden önerilmez.)
 5. Olusan anahtari kopyalayin ve yukaridaki yapilandirma dosyasina girin.
 
 ---
@@ -228,9 +229,31 @@ Hesaptaki (veya kurum çalışma alanındaki) sözleşmeleri listeler. Yalnız �
 |------|-----|---------|----------|
 | `durum` | `string` | Hayir | `taslak`, `bekliyor`, `tamamlandi`, `iptal`, `suresi-doldu` |
 | `arsiv` | `string` | Hayir | `haric`, `yalniz`, `dahil`. Verilmezse arşivli sözleşmeler de listelenir (paneldeki listenin tersine) |
-| `arama` | `string` | Hayir | Sözleşme kimliği, başlığı, açıklaması veya sözleşme numarasında arar. Taraf adı, e-posta ve telefonda aramaz |
+| `arama` | `string` | Hayir | Sözleşme kimliği, başlığı, açıklaması, sözleşme numarası veya takip numarasında (parça eşleşme) arar. Taraf adı, e-posta ve telefonda aramaz |
+| `external_ref` | `string` | Hayir | Takip numarasına göre tam eşleşme filtresi (büyük/küçük harf duyarlı, en fazla 255 karakter) |
 | `baslangic_tarih`, `bitis_tarih` | `string` | Hayir | Oluşturma tarihi aralığı (YYYY-AA-GG) |
 | `sayfa`, `limit` | `number` | Hayir | Sayfalama (varsayılan 20, en az 10, en fazla 100) |
+
+---
+
+### `sozlesme_takip_no_guncelle`
+
+Bir sözleşmenin takip numarasını (`external_ref`: kendi sisteminizdeki kayıt numarası, ör. sipariş no) değiştirir ya da temizler. Takip numarası benzersiz olmak zorunda değildir. Tamamlanmış, iptal edilmiş veya arşivlenmiş sözleşmede de çalışır; belge içeriğini, imzaları ve imzalı PDF'i değiştirmez, kredi harcamaz. `demands:write` kapsamı ister.
+
+**Girdiler:**
+
+| Alan | Tip | Zorunlu | Aciklama |
+|------|-----|---------|----------|
+| `demand_id` | `string` | Evet | Sözleşmenin (demand) kimliği |
+| `external_ref` | `string` veya `null` | Evet | Yeni takip numarası (en fazla 255 karakter). `null` ya da boş metin mevcut değeri temizler |
+
+**Cikti ornegi:**
+
+```
+Takip numarası güncellendi: "SIP-2026-00042" [3f2c8e9a-6b1d-4c7e-9a05-2d8f1b6e4c73]. Belge içeriği, imzalar ve imzalı PDF değişmedi.
+```
+
+Takip numarasına kimlik numarası, e-posta, telefon ya da başka kişisel veri yazmayın: değer sözleşme listesinde, detayda ve webhook yüklerinde görünür. `sablondan_sozlesme_olustur` ve `toplu_sozlesme_gonder` de oluştururken `external_ref` alır (toplu gönderimde satır başına).
 
 ---
 
@@ -411,6 +434,16 @@ Bu not hukuki danışmanlık değildir; belirli bir amaç için kullanmadan önc
 ---
 
 ## Sürüm notları
+
+### 1.18.0
+
+- İmzala API 1.18.0 ile uyumlu: sözleşme takip numarası (`external_ref`).
+- Yeni araç `sozlesme_takip_no_guncelle`: takip numarasını değiştirir ya da temizler (`demands:write`).
+- `sablondan_sozlesme_olustur` ve `toplu_sozlesme_gonder` (satır başına) oluştururken `external_ref` alır; `sozlesmelerim` `external_ref` ile tam eşleşme filtreler, `arama` takip numarasında da arar.
+- `sozlesme_durumu` ve `sozlesmelerim` çıktısında takip numarası varsa alıntı olarak görünür.
+- Geçersiz ya da 255 karakteri aşan değer için dönen `EXTERNAL_REF_INVALID` ve `EXTERNAL_REF_TOO_LONG` hataları anlaşılır bir mesajla gösterilir; değer mesaja yazılmaz.
+
+Önceki sürümlerle uyumludur; mevcut araç girdileri değişmedi, yeni alanlar isteğe bağlıdır.
 
 ### 1.17.5
 

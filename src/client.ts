@@ -109,6 +109,8 @@ export interface DemandStatusResult {
   documents?: DemandDocument[];
   /** API 1.17.0. Absent on older deployments; `[]` when no number was issued. */
   contract_numbers?: ContractNumber[];
+  /** API 1.18.0. The caller's own tracking number; absent on older deployments, `null` when unset. */
+  external_ref?: string | null;
 }
 
 export interface TemplatePartyBrief {
@@ -205,6 +207,8 @@ export interface CreateDemandInput {
   /** Optional per-request document selection; passed to the API unchanged. */
   documents?: DocumentSelectionInput;
   idempotencyKey?: string;
+  /** API 1.18.0 tracking number (max 255 chars, not unique). Sent only when set. */
+  externalRef?: string;
   /**
    * Bypasses the server's keyless duplicate guard (409 DUPLICATE_SUSPECTED:
    * same key, same template and parties, within 10 minutes). Only ever set
@@ -271,6 +275,8 @@ export interface DemandListItem {
   term_end_date?: string | null;
   /** API 1.17.0. Absent on older deployments; `[]` when no number was issued. */
   contract_numbers?: ContractNumber[];
+  /** API 1.18.0. Absent on older deployments, `null` when unset. */
+  external_ref?: string | null;
 }
 export interface DemandListResult {
   demands: DemandListItem[];
@@ -288,8 +294,16 @@ export interface ListDemandsInput {
   from?: string;
   /** Tarih aralığı bitişi (ISO YYYY-MM-DD). createdAt <= to. */
   to?: string;
+  /** API 1.18.0: tam eşleşen takip numarası (büyük/küçük harf duyarlı). */
+  externalRef?: string;
   page?: number;
   limit?: number;
+}
+
+// ── Takip numarası güncelleme (PATCH /api/v1/demands/:id/external-ref, API 1.18.0) ──
+export interface UpdateExternalRefResult {
+  id: string;
+  external_ref: string | null;
 }
 
 // ── Sözleşme iptal (POST /api/v1/demands/:id/cancel) ──
@@ -399,6 +413,8 @@ export interface BulkRow {
    * level (`options.documents`) is rejected with INVALID_DOCUMENT_SELECTION.
    */
   documents?: DocumentSelectionInput;
+  /** API 1.18.0 tracking number for this row (max 255 chars, not unique). */
+  external_ref?: string;
 }
 export interface BulkRowResult {
   row_index: number;
@@ -674,6 +690,7 @@ export function makeClient(o: ImzalaClientOpts): {
   listTimestamps(input?: ListTimestampsInput): Promise<TimestampListResult>;
   getDemandTimeline(demandId: string): Promise<TimelineResult>;
   bulkCreateDemands(input: BulkCreateDemandsInput, workspaceId?: string): Promise<BulkResult>;
+  updateDemandExternalRef(demandId: string, externalRef: string | null): Promise<UpdateExternalRefResult>;
 } {
   const { apiKey, baseUrl, fetch: fetchFn } = o;
 
@@ -831,6 +848,7 @@ export function makeClient(o: ImzalaClientOpts): {
     // so the API's default (send SMS+email to every party) takes effect.
     if (!input.send) body.dispatch_notifications = false;
     if (input.force === true) body.force = true;
+    if (input.externalRef !== undefined && input.externalRef !== '') body.external_ref = input.externalRef;
 
     const headers: Record<string, string> = { 'X-API-Key': apiKey, 'Content-Type': 'application/json', 'User-Agent': USER_AGENT };
     if (input.idempotencyKey !== undefined) headers['Idempotency-Key'] = input.idempotencyKey;
@@ -866,6 +884,7 @@ export function makeClient(o: ImzalaClientOpts): {
     if (input.archived) params.set('archived', input.archived);
     if (input.from) params.set('from', input.from);
     if (input.to) params.set('to', input.to);
+    if (input.externalRef) params.set('external_ref', input.externalRef);
     const res = await fetchFn(`${baseUrl}/api/v1/demands?${params.toString()}`, {
       method: 'GET',
       headers: { 'X-API-Key': apiKey, 'User-Agent': USER_AGENT },
@@ -969,9 +988,17 @@ export function makeClient(o: ImzalaClientOpts): {
     if (workspaceId) headers['X-Workspace-Id'] = workspaceId;
     // Same empty-selection rule as the single-create path, applied per row.
     const rows = input.rows.map((r) => {
-      if (r.documents === undefined || hasDocumentSelection(r.documents)) return r;
-      const { documents: _dropped, ...rest } = r;
-      return rest;
+      let row = r;
+      if (row.documents !== undefined && !hasDocumentSelection(row.documents)) {
+        const { documents: _dropped, ...rest } = row;
+        row = rest;
+      }
+      // An empty tracking number means "none"; same rule as the single create.
+      if (row.external_ref !== undefined && row.external_ref.trim() === '') {
+        const { external_ref: _empty, ...rest } = row;
+        row = rest;
+      }
+      return row;
     });
     const res = await fetchFn(`${baseUrl}/api/v1/demands/bulk`, {
       method: 'POST',
@@ -988,9 +1015,20 @@ export function makeClient(o: ImzalaClientOpts): {
     return json.data as BulkResult;
   }
 
+  async function updateDemandExternalRef(demandId: string, externalRef: string | null): Promise<UpdateExternalRefResult> {
+    const res = await fetchFn(`${baseUrl}/api/v1/demands/${encodeURIComponent(demandId)}/external-ref`, {
+      method: 'PATCH',
+      headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
+      body: JSON.stringify({ external_ref: externalRef }),
+    });
+    if (!res.ok) throw await parseErrorBody(res, res.status);
+    const parsed = await res.json() as { success: boolean; data: UpdateExternalRefResult };
+    return parsed.data;
+  }
+
   return {
     getMe, getReports, createTimestamp, getDemand, listTemplates, getTemplate, downloadSignedPdf, createDemand, sendReminder,
     listDemands, cancelDemand, deleteDemand, listContacts, createContact, listTimestamps, getDemandTimeline, downloadCertificate,
-    bulkCreateDemands,
+    bulkCreateDemands, updateDemandExternalRef,
   };
 }
